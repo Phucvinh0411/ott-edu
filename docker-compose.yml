@@ -105,8 +105,8 @@ services:
       - /app/node_modules
     ports:
       - "${CHAT_PORT}:3001"
-      - "40000-40100:40000-40100/udp"
-      - "40000-40100:40000-40100/tcp"
+      - "40000-41000:40000-41000/udp"
+      - "40000-41000:40000-41000/tcp"
     depends_on:
       - mongo-db
     networks:

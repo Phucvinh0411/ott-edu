@@ -313,6 +313,7 @@ export default function useWebRTCMediasoup({
         } catch (e) {
           console.warn("close screen producer error", e);
         }
+        socket?.emit("closeProducer", { conversationId: currentConversationIdRef.current, producerId: existingScreenProducer.id });
         producersRef.current.delete("screen");
         // Restore camera preview if available
         const previewStream = localStreamRef.current;
@@ -352,6 +353,7 @@ export default function useWebRTCMediasoup({
         } catch (e) {
           console.warn("close screen producer onended error", e);
         }
+        socket?.emit("closeProducer", { conversationId: currentConversationIdRef.current, producerId: screenProducer.id });
         producersRef.current.delete("screen");
         setIsScreenSharing(false);
         // restore camera
@@ -375,23 +377,39 @@ export default function useWebRTCMediasoup({
     [],
   );
 
+  // Stable MediaStream objects per userId — never replaced, only mutated.
+  // This prevents video elements from losing their srcObject when a new track arrives.
+  const stableRemoteStreamsRef = useRef<Map<string, MediaStream>>(new Map());
+
   const addRemoteTrack = useCallback(
     (userId: string, track: MediaStreamTrack) => {
-      updateRemoteStreams((next) => {
-        const existing = next.get(userId) || new MediaStream();
-        const updatedStream = new MediaStream();
+      // Get or create a STABLE MediaStream for this user
+      let stream = stableRemoteStreamsRef.current.get(userId);
+      if (!stream) {
+        stream = new MediaStream();
+        stableRemoteStreamsRef.current.set(userId, stream);
+      }
 
-        existing.getTracks().forEach((existingTrack) => {
-          if (existingTrack.id !== track.id) {
-            updatedStream.addTrack(existingTrack);
-          }
-        });
+      // Replace any existing track of the same kind to avoid duplicates
+      stream.getTracks().forEach((t) => {
+        if (t.kind === track.kind && t.id !== track.id) {
+          stream!.removeTrack(t);
+        }
+      });
 
-        updatedStream.addTrack(track);
-        next.set(userId, updatedStream);
+      if (!stream.getTrackById(track.id)) {
+        stream.addTrack(track);
+      }
+
+      // Trigger a React state update with the SAME stream reference so
+      // video elements that already have srcObject=stream see the new track automatically.
+      setRemoteStreams((prev) => {
+        const next = new Map(prev);
+        next.set(userId, stream!);
+        return next;
       });
     },
-    [updateRemoteStreams],
+    [],
   );
 
   const removeConsumer = useCallback(
@@ -711,6 +729,7 @@ export default function useWebRTCMediasoup({
 
       // Close producers
       producersRef.current.forEach((producer) => {
+        socket?.emit("closeProducer", { conversationId: currentConversationIdRef.current, producerId: producer.id });
         producer.close();
       });
       producersRef.current.clear();
@@ -735,7 +754,9 @@ export default function useWebRTCMediasoup({
       setIsScreenSharing(false);
       setActiveCall(null);
       setCallStatus("idle");
+      setIncomingCall(null);
       setRemoteStreams(new Map());
+      stableRemoteStreamsRef.current.clear();
       currentConversationIdRef.current = null;
       pendingProducersRef.current = [];
       consumedProducerIdsRef.current.clear();
@@ -747,10 +768,11 @@ export default function useWebRTCMediasoup({
 
   const startGroupCall = useCallback(
     async (conversationId: string) => {
-      if (!socket || callStatus !== "idle") return;
+      if (!socket || (callStatus !== "idle" && callStatus !== "receiving")) return;
 
       try {
         setCallError(null);
+        setIncomingCall(null);
         currentConversationIdRef.current = conversationId;
         setCallStatus("calling");
 
@@ -804,11 +826,11 @@ export default function useWebRTCMediasoup({
         });
         setCallStatus("connected");
       } catch (error) {
+        console.error("[useWebRTCMediasoup] startGroupCall failed:", error);
         const message = error instanceof Error ? error.message : "Failed to start call";
         setCallError(message);
+        // endCall() already resets callStatus to 'idle' and clears all refs
         endCall();
-        setCallStatus("idle");
-        currentConversationIdRef.current = null;
       }
     },
     [
@@ -833,6 +855,7 @@ export default function useWebRTCMediasoup({
     if (!incomingCall) return;
     socket?.emit("leaveMediaRoom", incomingCall.conversationId);
     setIncomingCall(null);
+    setCallStatus("idle");
   }, [incomingCall, socket]);
 
   // Listen for new producers from other peers
@@ -894,6 +917,7 @@ export default function useWebRTCMediasoup({
           toUserId: currentUserId,
           initiatedAt,
         });
+        setCallStatus("receiving");
       }
     };
 
@@ -923,6 +947,14 @@ export default function useWebRTCMediasoup({
         next.delete(userId);
         return next;
       });
+
+      setIncomingCall((prev) => {
+        if (prev?.fromUserId === userId) {
+          setCallStatus((current) => current === "receiving" ? "idle" : current);
+          return null;
+        }
+        return prev;
+      });
     };
 
     socket.on("mediaPeerLeft", handlePeerLeft);
@@ -931,6 +963,58 @@ export default function useWebRTCMediasoup({
       socket.off("mediaPeerLeft", handlePeerLeft);
     };
   }, [currentUserId, consumeProducer, removeConsumer, socket]);
+
+  // Listen for callEnded – fired by server when the other peer hangs up or disconnects in a 1-1 call
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleCallEnded = ({
+      endedByUserId,
+      reason,
+    }: {
+      conversationId: string;
+      endedByUserId: string;
+      reason: string;
+    }) => {
+      console.log(`[useWebRTCMediasoup] callEnded by ${endedByUserId}, reason: ${reason}`);
+      // Only end if we are currently in a call (avoid ghost events)
+      if (currentConversationIdRef.current) {
+        endCall(reason);
+      }
+    };
+
+    socket.on("callEnded", handleCallEnded);
+
+    // Legacy 1-1 private call signaling path
+    socket.on("videoCallEnded", handleCallEnded);
+
+    return () => {
+      socket.off("callEnded", handleCallEnded);
+      socket.off("videoCallEnded", handleCallEnded);
+    };
+  }, [socket, endCall]);
+
+  // Listen for individual producer closures (e.g. remote peer turned off camera)
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleProducerClosed = ({ producerId }: { producerId: string }) => {
+      // Find consumer(s) for this producer and remove them
+      const toRemove: string[] = [];
+      consumerMetaRef.current.forEach((meta, consumerId) => {
+        if (meta.producerId === producerId) {
+          toRemove.push(consumerId);
+        }
+      });
+      toRemove.forEach((consumerId) => removeConsumer(consumerId));
+    };
+
+    socket.on("producerClosed", handleProducerClosed);
+
+    return () => {
+      socket.off("producerClosed", handleProducerClosed);
+    };
+  }, [socket, removeConsumer]);
 
   // Cleanup on unmount
   useEffect(() => {

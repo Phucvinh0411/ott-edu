@@ -112,6 +112,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRefs = useRef<Map<string, HTMLVideoElement>>(new Map());
   const [localMessages, setLocalMessages] = useState<Message[]>(messages);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
@@ -192,36 +193,62 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   }, [localStream]);
 
   useEffect(() => {
+    const remoteVideoElement = remoteVideoRef.current;
+    if (!remoteVideoElement || !remoteStream) {
+      return;
+    }
+
+    if (remoteVideoElement.srcObject !== remoteStream) {
+      remoteVideoElement.srcObject = remoteStream;
+    }
+
+    const playRemoteVideo = () => {
+      void remoteVideoElement.play().catch((error) => {
+        console.debug("[ChatWindow] Inline remote video autoplay blocked:", error);
+      });
+    };
+
+    if (remoteVideoElement.readyState >= 1) {
+      playRemoteVideo();
+    } else {
+      remoteVideoElement.onloadedmetadata = playRemoteVideo;
+    }
+
+    return () => {
+      remoteVideoElement.onloadedmetadata = null;
+    };
+  }, [remoteStream]);
+
+  useEffect(() => {
     remoteStreamsList.forEach(([userId, stream]) => {
-      const videoElement = remoteVideoRefs.current.get(userId);
-      if (!videoElement) {
-        return;
+      const el = remoteVideoRefs.current.get(userId);
+      if (!el) return;
+
+      if (el.srcObject !== stream) {
+        el.srcObject = stream;
       }
 
-      if (videoElement.srcObject !== stream) {
-        videoElement.srcObject = stream;
-      }
-
-      if (stream.getVideoTracks().length === 0) {
-        return;
-      }
-
-      const playRemoteVideo = () => {
-        void videoElement.play().catch((error) => {
-          console.debug("[ChatWindow] Remote video autoplay blocked:", error);
-        });
+      // Mute first so browser allows autoplay (autoplay policy blocks unmuted video)
+      // then unmute immediately after playback starts
+      el.muted = true;
+      const tryPlay = () => {
+        el.play()
+          .then(() => { el.muted = false; })
+          .catch((err) => {
+            console.warn("[ChatWindow] Remote play failed:", err);
+          });
       };
 
-      if (videoElement.readyState >= 1) {
-        playRemoteVideo();
+      if (el.readyState >= 2) {
+        tryPlay();
       } else {
-        videoElement.onloadedmetadata = playRemoteVideo;
+        el.oncanplay = tryPlay;
       }
     });
 
     return () => {
-      remoteVideoRefs.current.forEach((videoElement) => {
-        videoElement.onloadedmetadata = null;
+      remoteVideoRefs.current.forEach((el) => {
+        el.oncanplay = null;
       });
     };
   }, [remoteStreamsList]);
@@ -381,16 +408,27 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     <p className="mt-3 text-lg font-semibold">Dang cho nguoi tham gia</p>
                   </div>
                 ) : (
-                  remoteStreamsList.map(([userId, _stream]) => (
+                  remoteStreamsList.map(([userId, stream]) => (
                     <div
                       key={userId}
                       className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/60"
                     >
                       <video
                         ref={(el) => {
-                          if (el) {
-                            remoteVideoRefs.current.set(userId, el);
+                          if (!el) return;
+                          remoteVideoRefs.current.set(userId, el);
+                          if (el.srcObject !== stream) {
+                            el.srcObject = stream;
                           }
+                          // Mute → play → unmute to bypass autoplay policy
+                          el.muted = true;
+                          el.play()
+                            .then(() => { el.muted = false; })
+                            .catch(() => {
+                              el.oncanplay = () => {
+                                el.play().then(() => { el.muted = false; }).catch(() => {});
+                              };
+                            });
                         }}
                         autoPlay
                         playsInline

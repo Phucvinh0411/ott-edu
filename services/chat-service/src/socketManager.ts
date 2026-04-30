@@ -571,6 +571,16 @@ class SocketManager {
         return;
       }
 
+      // If this was a 1-1 call room, notify the remaining peer that the call ended
+      const isPrivateCall = room.peers.size === 2;
+      if (isPrivateCall) {
+        this.io?.to(room.conversationId).emit("callEnded", {
+          conversationId: room.conversationId,
+          endedByUserId: peer.userId,
+          reason: "disconnected",
+        });
+      }
+
       this.closeMediaPeer(room, peer);
       this.io?.to(room.conversationId).emit("mediaPeerLeft", {
         userId: peer.userId,
@@ -944,7 +954,8 @@ class SocketManager {
             console.warn(
               "[Mediasoup] canConsume failed for producer",
               data.producerId,
-              "with peer rtpCapabilities",
+              "with peer rtpCapabilities:",
+              JSON.stringify(rtpCapabilities, null, 2),
             );
             this.emitMediaError(
               socket,
@@ -1050,6 +1061,36 @@ class SocketManager {
         }
       });
 
+      socket.on("closeProducer", (data: { conversationId: string; producerId: string }, ack?: MediaAck) => {
+        const conversationId = data?.conversationId?.trim();
+        if (!conversationId || !data?.producerId) {
+          this.emitMediaError(socket, "INVALID_PAYLOAD", "conversationId and producerId are required.", ack);
+          return;
+        }
+
+        const room = this.mediaRooms.get(conversationId);
+        if (!room) return;
+
+        const peer = this.getMediaPeer(room, socket.id);
+        if (!peer) return;
+
+        const producer = peer.producers.get(data.producerId);
+        if (producer) {
+          try {
+            producer.close();
+          } catch (error) {
+            console.warn("[Mediasoup] close producer error:", error);
+          }
+          peer.producers.delete(data.producerId);
+          
+          socket.to(conversationId).emit("producerClosed", {
+            producerId: data.producerId,
+          });
+        }
+        
+        this.safeAck(ack, { ok: true, data: { closed: true } });
+      });
+
       socket.on("leaveMediaRoom", (conversationId: string) => {
         const roomId = conversationId?.trim();
         if (!roomId) {
@@ -1064,6 +1105,16 @@ class SocketManager {
         const peer = room.peers.get(socket.id);
         if (!peer) {
           return;
+        }
+
+        // If this is a 1-1 room (2 peers), notify the remaining peer that the call ended
+        const isPrivateCall = room.peers.size === 2;
+        if (isPrivateCall) {
+          socket.to(roomId).emit("callEnded", {
+            conversationId: roomId,
+            endedByUserId: peer.userId,
+            reason: "left",
+          });
         }
 
         this.closeMediaPeer(room, peer);
