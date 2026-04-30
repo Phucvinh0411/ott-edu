@@ -25,6 +25,7 @@ spring:
     baseline-on-migrate: true
     baseline-version: 0
     out-of-order: false
+    validate-on-migrate: false
 
 jwt:
   # Base64-encoded secret for HMAC signing (replace in production via JWT_SECRET env var).
