@@ -317,9 +317,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       return null;
     }
 
-    const participantsCount = remoteStreamsList.length + (localStream ? 1 : 0);
     const callTitle = conversation?.name || incomingCallerName || "Cuoc goi";
-    const gridColsClass =
+    const isOneOnOne = remoteStreamsList.length <= 1;
+
+    // Responsive grid for group: 1→full, 2→2col, 3-4→2col, 5+→3col
+    const gridCols =
       remoteStreamsList.length <= 1
         ? "grid-cols-1"
         : remoteStreamsList.length <= 4
@@ -327,39 +329,38 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           : "grid-cols-3";
 
     return (
-      <div className="fixed inset-0 z-50 flex flex-col text-white">
+      <div className="fixed inset-0 z-50 flex flex-col overflow-hidden text-white">
+        {/* Background */}
         <div className="absolute inset-0 bg-slate-950" />
-        <div className="absolute inset-0 opacity-70 bg-[radial-gradient(circle_at_top,rgba(59,130,246,0.25),transparent_55%),radial-gradient(circle_at_20%_30%,rgba(14,116,144,0.25),transparent_45%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(59,130,246,0.18),transparent_60%),radial-gradient(ellipse_at_bottom_left,rgba(14,116,144,0.15),transparent_50%)]" />
 
-        <div className="relative z-10 flex h-full flex-col">
-          <div className="flex items-center justify-between px-6 py-4">
+        {/* Content wrapper — takes full height, never overflows */}
+        <div className="relative z-10 flex min-h-0 flex-1 flex-col">
+
+          {/* ── Header ── */}
+          <div className="flex shrink-0 items-center justify-between px-4 py-3 sm:px-6">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white/10 backdrop-blur">
-                <Users size={18} />
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 backdrop-blur-sm">
+                <Users size={16} />
               </div>
-              <div>
-                <p className="text-sm uppercase tracking-[0.2em] text-slate-300">Cuoc goi video</p>
-                <h2 className="text-xl font-semibold text-white">{callTitle}</h2>
+              <div className="min-w-0">
+                <p className="truncate text-xs uppercase tracking-widest text-slate-400">Cuoc goi video</p>
+                <h2 className="truncate text-base font-semibold leading-tight text-white sm:text-lg">{callTitle}</h2>
               </div>
             </div>
-            <div className="text-right">
-              <p className="text-xs text-slate-400">Trang thai</p>
-              <p className="text-sm font-semibold text-slate-100">{callStatusLabel}</p>
-              <p className="text-xs text-slate-400">{participantsCount} nguoi</p>
+            <div className="shrink-0 text-right">
+              <p className="text-[11px] text-slate-400">{callStatusLabel}</p>
             </div>
           </div>
 
+          {/* ── Error banner ── */}
           {callError && (
-            <div className="mx-6 mb-3 rounded-2xl border border-rose-400/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-100">
-              <div className="flex items-start justify-between gap-3">
+            <div className="mx-4 mb-2 shrink-0 rounded-xl border border-rose-400/40 bg-rose-500/10 px-3 py-2 text-xs text-rose-100 sm:mx-6">
+              <div className="flex items-start justify-between gap-2">
                 <p className="flex-1">{callError}</p>
                 {onClearCallError && (
-                  <button
-                    type="button"
-                    onClick={onClearCallError}
-                    className="rounded-full p-1 text-rose-100 transition hover:bg-white/10"
-                  >
-                    <X size={14} />
+                  <button type="button" onClick={onClearCallError} className="shrink-0 rounded-full p-1 hover:bg-white/10">
+                    <X size={12} />
                   </button>
                 )}
               </div>
@@ -367,156 +368,224 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                 <button
                   type="button"
                   onClick={() => void onRetryMediaPermission()}
-                  className="mt-2 inline-flex items-center gap-2 rounded-full border border-rose-200/40 px-3 py-1 text-xs font-semibold text-rose-100 transition hover:bg-rose-500/20"
+                  className="mt-1.5 inline-flex items-center gap-1 rounded-full border border-rose-200/40 px-2.5 py-1 text-[11px] font-semibold hover:bg-rose-500/20"
                 >
-                  <RefreshCw size={12} />
-                  Xin quyen lai
+                  <RefreshCw size={11} /> Xin quyen lai
                 </button>
               )}
             </div>
           )}
 
+          {/* ── Main area — flex-1 with min-h-0 to stay within bounds ── */}
           {incomingCall && callStatus === "receiving" ? (
-            <div className="mx-auto mt-16 w-full max-w-md rounded-3xl border border-emerald-200/30 bg-emerald-500/10 px-6 py-6 text-center backdrop-blur">
-              <p className="text-sm uppercase tracking-[0.3em] text-emerald-200">Incoming</p>
-              <p className="mt-2 text-xl font-semibold text-white">
-                {incomingCallerName} dang goi video cho ban
-              </p>
-              <div className="mt-6 flex items-center justify-center gap-3">
-                <button
-                  type="button"
-                  onClick={onDeclineIncomingCall}
-                  className="rounded-full border border-white/20 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/10"
-                >
-                  Tu choi
-                </button>
-                <button
-                  type="button"
-                  onClick={onAcceptIncomingCall}
-                  className="rounded-full bg-emerald-400 px-4 py-2 text-xs font-semibold text-emerald-950 transition hover:bg-emerald-300"
-                >
-                  Chap nhan
-                </button>
+            /* Incoming call screen */
+            <div className="flex flex-1 items-center justify-center p-6">
+              <div className="w-full max-w-sm rounded-3xl border border-emerald-400/30 bg-emerald-500/10 px-6 py-8 text-center backdrop-blur-sm">
+                <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-400/20 ring-4 ring-emerald-400/30">
+                  <Video size={28} className="text-emerald-300" />
+                </div>
+                <p className="text-xs uppercase tracking-widest text-emerald-300">Cuoc goi den</p>
+                <p className="mt-2 text-lg font-semibold text-white">{incomingCallerName} dang goi video cho ban</p>
+                <div className="mt-6 flex items-center justify-center gap-3">
+                  <button
+                    type="button"
+                    onClick={onDeclineIncomingCall}
+                    className="flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/80 transition hover:bg-rose-500"
+                    title="Tu choi"
+                  >
+                    <PhoneOff size={20} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onAcceptIncomingCall}
+                    className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-400 transition hover:bg-emerald-300"
+                    title="Chap nhan"
+                  >
+                    <Phone size={20} className="text-emerald-950" />
+                  </button>
+                </div>
               </div>
             </div>
-          ) : (
-            <div className="flex-1 px-6 pb-8">
-              <div className={`grid ${gridColsClass} gap-4`}> 
-                {remoteStreamsList.length === 0 ? (
-                  <div className="col-span-full flex flex-col items-center justify-center rounded-3xl border border-white/10 bg-white/5 px-6 py-12 text-center text-slate-200">
-                    <p className="text-sm uppercase tracking-[0.3em] text-slate-400">Dang ket noi</p>
-                    <p className="mt-3 text-lg font-semibold">Dang cho nguoi tham gia</p>
-                  </div>
-                ) : (
-                  remoteStreamsList.map(([userId, stream]) => (
-                    <div
+          ) : isOneOnOne ? (
+            /* ── 1-1 Layout: remote fills entire area, local is PiP ── */
+            <div className="relative min-h-0 flex-1">
+              {/* Remote — full bleed */}
+              {remoteStreamsList.length > 0 ? (
+                (() => {
+                  const [userId, stream] = remoteStreamsList[0]!;
+                  return (
+                    <video
                       key={userId}
-                      className="relative overflow-hidden rounded-3xl border border-white/10 bg-black/60"
-                    >
-                      <video
-                        ref={(el) => {
-                          if (!el) return;
-                          remoteVideoRefs.current.set(userId, el);
-                          if (el.srcObject !== stream) {
-                            el.srcObject = stream;
-                          }
-                          // Mute → play → unmute to bypass autoplay policy
-                          el.muted = true;
-                          el.play()
-                            .then(() => { el.muted = false; })
-                            .catch(() => {
-                              el.oncanplay = () => {
-                                el.play().then(() => { el.muted = false; }).catch(() => {});
-                              };
-                            });
-                        }}
-                        autoPlay
-                        playsInline
-                        className="h-full w-full object-cover"
-                      />
-                      <div className="absolute bottom-3 left-3 rounded-full bg-black/60 px-3 py-1 text-xs text-white">
-                        {userId}
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
+                      ref={(el) => {
+                        if (!el) return;
+                        remoteVideoRefs.current.set(userId, el);
+                        if (el.srcObject !== stream) el.srcObject = stream;
+                        el.muted = true;
+                        el.play()
+                          .then(() => { el.muted = false; })
+                          .catch(() => {
+                            el.oncanplay = () => { el.play().then(() => { el.muted = false; }).catch(() => {}); };
+                          });
+                      }}
+                      autoPlay
+                      playsInline
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  );
+                })()
+              ) : (
+                /* Waiting placeholder */
+                <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-slate-300">
+                  <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/5 ring-1 ring-white/10">
+                    <Users size={36} className="opacity-40" />
+                  </div>
+                  <p className="text-sm tracking-wide text-slate-400">Dang ket noi...</p>
+                </div>
+              )}
 
-              <div className="absolute bottom-24 right-6 w-48 overflow-hidden rounded-2xl border border-white/15 bg-black/70 shadow-xl">
+              {/* Local PiP — bottom-right corner, responsive size */}
+              <div className="absolute bottom-4 right-4 z-20 overflow-hidden rounded-2xl border border-white/20 bg-black shadow-2xl
+                              w-28 sm:w-36 md:w-44">
                 <video
                   ref={localVideoRef}
                   autoPlay
                   muted
                   playsInline
-                  className="h-32 w-full object-cover"
+                  className="aspect-video w-full object-cover"
                 />
                 {(!localStream || !isCameraEnabled) && (
-                  <div className="absolute inset-0 flex items-center justify-center text-xs text-slate-200">
-                    {isCameraEnabled ? "Dang khoi tao camera..." : "Ban da tat camera"}
+                  <div className="absolute inset-0 flex items-center justify-center bg-slate-900/80 text-[10px] text-slate-300">
+                    {isCameraEnabled ? "Dang tai..." : "Camera tat"}
                   </div>
                 )}
-                <div className="absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] text-slate-100">
-                  Ban
+                <div className="absolute bottom-1 left-2 text-[10px] text-white/70">Ban</div>
+              </div>
+            </div>
+          ) : (
+            /* ── Group Layout: grid + local tile ── */
+            <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-2 sm:px-4">
+              <div className={`grid ${gridCols} auto-rows-fr gap-2 sm:gap-3`}
+                   style={{ minHeight: 0 }}>
+                {/* Remote tiles */}
+                {remoteStreamsList.map(([userId, stream]) => (
+                  <div
+                    key={userId}
+                    className="relative overflow-hidden rounded-2xl bg-slate-800 ring-1 ring-white/10"
+                    style={{ aspectRatio: "16/9" }}
+                  >
+                    <video
+                      ref={(el) => {
+                        if (!el) return;
+                        remoteVideoRefs.current.set(userId, el);
+                        if (el.srcObject !== stream) el.srcObject = stream;
+                        el.muted = true;
+                        el.play()
+                          .then(() => { el.muted = false; })
+                          .catch(() => {
+                            el.oncanplay = () => { el.play().then(() => { el.muted = false; }).catch(() => {}); };
+                          });
+                      }}
+                      autoPlay
+                      playsInline
+                      className="h-full w-full object-cover"
+                    />
+                    <div className="absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] text-white backdrop-blur-sm">
+                      {userId.slice(-6)}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Local tile in grid */}
+                <div
+                  className="relative overflow-hidden rounded-2xl bg-slate-800 ring-1 ring-white/10"
+                  style={{ aspectRatio: "16/9" }}
+                >
+                  <video
+                    ref={localVideoRef}
+                    autoPlay
+                    muted
+                    playsInline
+                    className="h-full w-full object-cover"
+                  />
+                  {(!localStream || !isCameraEnabled) && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-slate-900/70 text-xs text-slate-300">
+                      {isCameraEnabled ? "Dang tai..." : "Camera tat"}
+                    </div>
+                  )}
+                  <div className="absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] text-white backdrop-blur-sm">
+                    Ban
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
-          <div className="flex items-center justify-center gap-3 px-6 pb-6">
-            <button
-              type="button"
-              onClick={onToggleMicrophone}
-              disabled={!localStream}
-              className={`inline-flex h-11 w-11 items-center justify-center rounded-full border transition ${
-                isMicrophoneEnabled
-                  ? "border-white/20 bg-white/10 text-white hover:bg-white/20"
-                  : "border-rose-400/60 bg-rose-500/30 text-rose-100"
-              }`}
-              title={isMicrophoneEnabled ? "Tat micro" : "Bat micro"}
-            >
-              {isMicrophoneEnabled ? <Mic size={18} /> : <MicOff size={18} />}
-            </button>
-            <button
-              type="button"
-              onClick={onToggleCamera}
-              disabled={!localStream}
-              className={`inline-flex h-11 w-11 items-center justify-center rounded-full border transition ${
-                isCameraEnabled
-                  ? "border-white/20 bg-white/10 text-white hover:bg-white/20"
-                  : "border-rose-400/60 bg-rose-500/30 text-rose-100"
-              }`}
-              title={isCameraEnabled ? "Tat camera" : "Bat camera"}
-            >
-              {isCameraEnabled ? <Camera size={18} /> : <CameraOff size={18} />}
-            </button>
-            <button
-              type="button"
-              onClick={onToggleScreenShare}
-              disabled={!localStream}
-              className={`inline-flex h-11 w-11 items-center justify-center rounded-full border transition ${
-                isScreenSharing
-                  ? "border-emerald-300/60 bg-emerald-400/30 text-emerald-100"
-                  : "border-white/20 bg-white/10 text-white hover:bg-white/20"
-              }`}
-              title={isScreenSharing ? "Dung chia se" : "Chia se man hinh"}
-            >
-              <Share2 size={18} />
-            </button>
-            {(activeCall || callStatus !== "idle") && (
+          {/* ── Controls bar — always at bottom, never overlaps ── */}
+          <div className="shrink-0 px-4 pb-safe-bottom">
+            <div className="flex items-center justify-center gap-2 py-4 sm:gap-3">
+              {/* Mic */}
               <button
                 type="button"
-                onClick={() => onEndVideoCall?.()}
-                className="inline-flex items-center gap-2 rounded-full bg-rose-500 px-4 py-2 text-xs font-semibold text-white transition hover:bg-rose-400"
+                onClick={onToggleMicrophone}
+                disabled={!localStream}
+                className={`flex h-12 w-12 items-center justify-center rounded-full border transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                  isMicrophoneEnabled
+                    ? "border-white/25 bg-white/10 text-white hover:bg-white/20"
+                    : "border-rose-400/60 bg-rose-500/30 text-rose-200"
+                }`}
+                title={isMicrophoneEnabled ? "Tat micro" : "Bat micro"}
               >
-                <PhoneOff size={14} />
-                Ket thuc
+                {isMicrophoneEnabled ? <Mic size={18} /> : <MicOff size={18} />}
               </button>
-            )}
+
+              {/* Camera */}
+              <button
+                type="button"
+                onClick={onToggleCamera}
+                disabled={!localStream}
+                className={`flex h-12 w-12 items-center justify-center rounded-full border transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                  isCameraEnabled
+                    ? "border-white/25 bg-white/10 text-white hover:bg-white/20"
+                    : "border-rose-400/60 bg-rose-500/30 text-rose-200"
+                }`}
+                title={isCameraEnabled ? "Tat camera" : "Bat camera"}
+              >
+                {isCameraEnabled ? <Camera size={18} /> : <CameraOff size={18} />}
+              </button>
+
+              {/* Screen share */}
+              <button
+                type="button"
+                onClick={onToggleScreenShare}
+                disabled={!localStream}
+                className={`flex h-12 w-12 items-center justify-center rounded-full border transition disabled:cursor-not-allowed disabled:opacity-40 ${
+                  isScreenSharing
+                    ? "border-sky-300/60 bg-sky-500/30 text-sky-200"
+                    : "border-white/25 bg-white/10 text-white hover:bg-white/20"
+                }`}
+                title={isScreenSharing ? "Dung chia se" : "Chia se man hinh"}
+              >
+                <Share2 size={18} />
+              </button>
+
+              {/* End call */}
+              {(activeCall || callStatus !== "idle") && (
+                <button
+                  type="button"
+                  onClick={() => onEndVideoCall?.()}
+                  className="flex h-12 items-center gap-2 rounded-full bg-rose-600 px-5 font-semibold transition hover:bg-rose-500 active:scale-95"
+                >
+                  <PhoneOff size={16} />
+                  <span className="text-sm">Ket thuc</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
     );
   };
+
 
   const renderVideoCallPanel = () => {
     if (!showInlineCallPanel) {
