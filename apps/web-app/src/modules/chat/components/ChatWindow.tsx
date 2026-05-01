@@ -24,10 +24,15 @@ import {
   RefreshCw,
   Video,
   X,
+  UserPlus,
+  Check,
+  UserCheck,
 } from "lucide-react";
 import Image from "next/image";
 import { Socket } from "socket.io-client";
 import ConversationInfoSidebar from "@/shared/components/ConversationInfoSidebar";
+import { AddMemberModal } from "./AddMemberModal";
+import { requestOrAddGroupMember, sendFriendRequestApi } from "../chatApi";
 
 interface ChatWindowProps {
   conversation: Conversation | null;
@@ -146,12 +151,57 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     });
   };
 
+  const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+
+  const handleAddMember = async (email: string) => {
+    if (conversation) {
+      await requestOrAddGroupMember(conversation.id, { email });
+      alert("Đã gửi lời mời / Thêm thành viên thành công!");
+    }
+  };
+  const [friendStatus, setFriendStatus] = useState<
+    "none" | "pending" | "friend"
+  >("none");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const [localMessages, setLocalMessages] = useState<Message[]>(messages);
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [isInfoSidebarOpen, setIsInfoSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (conversation?.type !== "private" || !currentUser) return;
+
+    let finalStatus: "none" | "pending" | "friend" = "none";
+
+    const pList = conversation.participants || [];
+
+    console.log("📦 Mở hộp soi Participants:", pList);
+    for (const p of pList) {
+      const participantObj = p as unknown as {
+        friendStatus?: "none" | "pending" | "friend";
+      };
+      const status = participantObj.friendStatus;
+
+      if (status === "friend") {
+        finalStatus = "friend";
+        break;
+      } else if (status === "pending") {
+        finalStatus = "pending";
+      }
+    }
+
+    const convObj = conversation as unknown as {
+      otherParticipant?: { friendStatus?: "none" | "pending" | "friend" };
+    };
+    if (finalStatus === "none" && convObj?.otherParticipant?.friendStatus) {
+      finalStatus = convObj.otherParticipant.friendStatus;
+    }
+
+    console.log("🎯 Trạng thái chốt hạ đưa lên nút:", finalStatus);
+
+    setFriendStatus(finalStatus);
+  }, [conversation, currentUser]);
 
   // Update local messages when messages prop changes
   useEffect(() => {
@@ -606,12 +656,97 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
           {/* Action Buttons */}
           <div className="flex items-center gap-2 text-slate-400">
+            {/* 👇 1. NÚT KẾT BẠN (CHỈ HIỆN Ở CHAT 1-1) 👇 */}
+            {conversation.type === "private" && (
+              <button
+                type="button"
+                // Disable nút nếu đã là bạn hoặc đã gửi lời mời
+                disabled={friendStatus !== "none"}
+                onClick={async () => {
+                  const otherParticipant = conversation.participants.find(
+                    (p) => p.id !== currentUser?.id,
+                  );
+                  if (!otherParticipant) return;
+
+                  try {
+                    await sendFriendRequestApi(otherParticipant.id);
+                    // Gửi thành công thì chuyển sang pending
+                    setFriendStatus("pending");
+                    alert(
+                      `Đã gửi lời mời kết bạn đến ${otherParticipant.name}! 🚀`,
+                    );
+                  } catch (error) {
+                    console.error("Lỗi gửi kết bạn:", error);
+                    const err = error as {
+                      response?: { data?: { error?: string } };
+                      message?: string;
+                    };
+                    const errorMsg =
+                      err.response?.data?.error ||
+                      "Không thể gửi lời mời lúc này!";
+                    alert(`Opps: ${errorMsg}`);
+
+                    if (errorMsg.includes("đã gửi")) {
+                      setFriendStatus("pending");
+                    } else if (errorMsg.includes("đã là bạn")) {
+                      setFriendStatus("friend");
+                    }
+                  }
+                }}
+                className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-medium transition mr-2 ${
+                  friendStatus === "friend"
+                    ? "bg-emerald-50 text-emerald-600 cursor-default" // Bạn bè (Xanh ngọc)
+                    : friendStatus === "pending"
+                      ? "bg-slate-100 text-slate-500 cursor-not-allowed" // Đã gửi (Xám)
+                      : "bg-blue-50 text-blue-600 hover:bg-blue-500 hover:text-white" // Chưa gửi (Xanh dương)
+                }`}
+                title={
+                  friendStatus === "friend"
+                    ? "Hai bạn đã là bạn bè"
+                    : friendStatus === "pending"
+                      ? "Đã gửi lời mời"
+                      : "Gửi lời mời kết bạn"
+                }
+              >
+                {friendStatus === "friend" ? (
+                  <>
+                    <UserCheck size={18} />{" "}
+                    <span className="hidden sm:inline">Bạn bè</span>
+                  </>
+                ) : friendStatus === "pending" ? (
+                  <>
+                    <Check size={18} />{" "}
+                    <span className="hidden sm:inline">Đã gửi lời mời</span>
+                  </>
+                ) : (
+                  <>
+                    <UserPlus size={18} />{" "}
+                    <span className="hidden sm:inline">Kết bạn</span>
+                  </>
+                )}
+              </button>
+            )}
+
+            {/* 👇 2. NÚT THÊM THÀNH VIÊN (CHỈ HIỆN Ở CHAT NHÓM) 👇 */}
+            {conversation.type === "class" && (
+              <button
+                type="button"
+                onClick={() => setIsAddMemberOpen(true)}
+                className="rounded-full p-2 transition-colors hover:bg-slate-100 hover:text-blue-500"
+                title="Thêm thành viên"
+              >
+                <UserPlus size={20} />
+              </button>
+            )}
+
+            {/* 👇 CÁC NÚT GỌI ĐIỆN, INFO GIỮ NGUYÊN 👇 */}
             <button
               type="button"
               className="rounded-full p-2 transition-colors hover:bg-slate-100 hover:text-blue-500"
             >
               <Phone size={20} />
             </button>
+
             <button
               type="button"
               onClick={onStartVideoCall}
@@ -619,8 +754,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               className="rounded-full p-2 transition-colors hover:bg-slate-100 hover:text-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
               title={
                 canStartVideoCall
-                  ? "Goi video 1-1"
-                  : "Chi ho tro goi trong doan chat private"
+                  ? "Gọi video 1-1"
+                  : "Chỉ hỗ trợ gọi trong đoạn chat private"
               }
             >
               <Video size={20} />
@@ -722,6 +857,13 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           isSending={isSending}
           replyingTo={replyingTo}
           onCancelReply={() => setReplyingTo(null)}
+        />
+
+        <AddMemberModal
+          isOpen={isAddMemberOpen}
+          onClose={() => setIsAddMemberOpen(false)}
+          onAddMember={handleAddMember}
+          existingMemberIds={conversation.participants.map((p) => p.id)}
         />
       </div>
 
