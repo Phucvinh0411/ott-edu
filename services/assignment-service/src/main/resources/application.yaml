@@ -21,6 +21,7 @@ spring:
 
   flyway:
     enabled: true
+    table: assignment_flyway_schema_history
     locations: classpath:db/migration
     baseline-on-migrate: true
     baseline-version: 0
