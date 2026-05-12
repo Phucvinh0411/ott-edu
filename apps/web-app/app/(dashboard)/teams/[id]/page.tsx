@@ -12,6 +12,7 @@ import LockTeamDialog from '@/modules/teams/LockTeamDialog';
 import EditTeamDialog from '@/modules/teams/EditTeamDialog';
 import { teamApi, Team } from '@/services/api/teamApi';
 import AssignmentsPage from '@/modules/assignments/AssignmentsPage';
+import { AssignmentType } from '@/shared/types/quiz';
 
 export default function TeamDetailPage() {
   const params = useParams();
@@ -86,10 +87,10 @@ export default function TeamDetailPage() {
             </h3>
           </div>
           <ul className="space-y-1 px-3">
-            {/* Giao bài tập */}
+            {/* Bài tập Essay */}
             <li>
               <button 
-                onClick={() => setActiveTab('quizzes')} 
+                onClick={() => setActiveTab('assignments')} 
                 className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-white hover:shadow-sm rounded-lg transition-all group"
               >
                 <div className="w-6 h-6 rounded flex items-center justify-center bg-indigo-100 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
@@ -102,7 +103,7 @@ export default function TeamDetailPage() {
             {/* Trắc nghiệm online */}
             <li>
               <button 
-                onClick={() => setActiveTab('quizzes')}
+                onClick={() => setActiveTab('online-quizzes')}
                 className="w-full flex items-center gap-3 px-3 py-2.5 text-sm font-medium text-slate-700 hover:bg-white hover:shadow-sm rounded-lg transition-all group"
               >
                 <div className="w-6 h-6 rounded flex items-center justify-center bg-emerald-100 text-emerald-600 group-hover:bg-emerald-600 group-hover:text-white transition-colors">
@@ -177,12 +178,12 @@ export default function TeamDetailPage() {
           )}
 
           <div className="flex gap-8 text-sm font-medium text-slate-500">
-            {['Posts', 'Files', 'Members'].map((tab) => (
+            {['Posts', 'Files', 'Members', 'Assignments', 'Online Quizzes'].map((tab) => (
               <button 
                 key={tab}
-                onClick={() => setActiveTab(tab.toLowerCase())}
+                onClick={() => setActiveTab(tab.toLowerCase().replace(' ', '-'))}
                 className={`pb-3 border-b-2 transition-colors ${
-                  activeTab === tab.toLowerCase() 
+                  activeTab === tab.toLowerCase().replace(' ', '-') 
                     ? 'border-blue-600 text-blue-600' 
                     : 'border-transparent hover:text-slate-900 hover:border-slate-300'
                 }`}
@@ -200,7 +201,8 @@ export default function TeamDetailPage() {
             {activeTab === 'posts' && <TeamPostsTab teamId={teamId} />}
             {activeTab === 'files' && <TeamFilesTab teamId={teamId} />}
             {activeTab === 'members' && <TeamMembersTab teamId={teamId} teamName={team?.name} />}
-            {activeTab === 'quizzes' && <div className="w-full"><AssignmentsPage teamId={teamId} /></div>}
+            {activeTab === 'assignments' && <div className="w-full"><AssignmentsPage teamId={teamId} filterType={AssignmentType.ESSAY} /></div>}
+            {activeTab === 'online-quizzes' && <div className="w-full"><AssignmentsPage teamId={teamId} filterType={AssignmentType.QUIZ} /></div>}
 
           </div>
         </div>
