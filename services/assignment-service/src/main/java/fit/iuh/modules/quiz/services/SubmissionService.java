@@ -143,4 +143,27 @@ public interface SubmissionService {
      * @return Number of remaining attempts, or -1 if unlimited
      */
     int getRemainingAttempts(Long assignmentId, Long studentAccountId);
+
+    /**
+     * Start an assignment by creating a new DRAFT submission (STUDENT only)
+     * 
+     * Creates a new submission record for the student on the given assignment.
+     * Required before submitting essay or quiz assignments.
+     * 
+     * @param assignmentId     The assignment ID
+     * @param studentAccountId The student's account ID
+     */
+    void startAssignment(Long assignmentId, Long studentAccountId);
+
+    /**
+     * Get the current submission for an assignment (STUDENT only)
+     * 
+     * Returns the active DRAFT or SUBMITTED submission if one exists.
+     * Returns null if no submission found.
+     * 
+     * @param assignmentId     The assignment ID
+     * @param studentAccountId The student's account ID
+     * @return The current submission, or null if none found
+     */
+    ViewSubmissionDto getCurrentSubmission(Long assignmentId, Long studentAccountId);
 }

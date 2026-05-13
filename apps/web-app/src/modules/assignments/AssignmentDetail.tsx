@@ -7,13 +7,24 @@ import { assignmentApi, submissionApi } from '@/services/api/assignment.service'
 import { AttemptHistory, AttemptStatus } from '@/shared/types/assignment';
 import { AssignmentDetail as AssignmentDetailType, AssignmentType } from '@/shared/types/quiz';
 import ConfirmDeleteModal from './modals/ConfirmDeleteModal';
-import GradingModal from './modals/GradingModal';
+import TeacherGradingDashboard from './components/TeacherGradingDashboard';
 import EssaySubmissionZone from './components/EssaySubmissionZone';
+import StudentSubmissionStatusTable from './components/StudentSubmissionStatusTable';
 
 interface AssignmentDetailProps {
   assignmentId: number;
   onClose?: () => void;
   onRefresh?: () => void;
+}
+
+interface StudentSubmission {
+  id: number;
+  status: string;
+  fileUrl: string;
+  submittedAt: string;
+  gradedAt?: string;
+  score?: number;
+  feedback?: string;
 }
 
 export default function AssignmentDetail({
@@ -31,18 +42,43 @@ export default function AssignmentDetail({
   // STUDENT-specific state
   const [attemptHistory, setAttemptHistory] = useState<AttemptHistory[]>([]);
   const [attemptStatus, setAttemptStatus] = useState<AttemptStatus | null>(null);
+  const [currentSubmission, setCurrentSubmission] = useState<StudentSubmission | null>(null);
+  const [submissionLoading, setSubmissionLoading] = useState(false);
   
   // Feature 1: Delete modal
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   
-  // Feature 3 & 4: Submission and grading
-  const [showGradingModal, setShowGradingModal] = useState(false);
-  const [studentGrade, setStudentGrade] = useState<any | null>(null);
+  // Feature 4: Refresh submission for post-submit status table
   const [refreshSubmission, setRefreshSubmission] = useState(false);
 
   useEffect(() => {
     loadAssignmentDetail();
   }, [assignmentId, refreshSubmission]);
+
+  // Feature 5: Poll for grade updates (student waiting for teacher grading)
+  useEffect(() => {
+    if (!currentSubmission || isTeacher || currentSubmission.status !== 'SUBMITTED') {
+      return;
+    }
+
+    // Poll every 5 seconds to check if teacher has graded
+    const pollInterval = setInterval(async () => {
+      try {
+        const updated = await submissionApi.getCurrentSubmission(assignmentId);
+        if (updated) {
+          setCurrentSubmission(updated);
+          // Stop polling once graded
+          if (updated.grade) {
+            clearInterval(pollInterval);
+          }
+        }
+      } catch (err) {
+        console.error('Error polling for grade updates:', err);
+      }
+    }, 5000);
+
+    return () => clearInterval(pollInterval);
+  }, [currentSubmission, assignmentId, isTeacher]);
 
   const loadAssignmentDetail = async () => {
     try {
@@ -62,21 +98,69 @@ export default function AssignmentDetail({
         setAttemptStatus(status);
       }
 
-      // If STUDENT and ESSAY, try to load existing grade
+      // If STUDENT and ESSAY, initialize or fetch submission
       if (!isTeacher && detail.type === AssignmentType.ESSAY) {
-        try {
-          // Try to fetch student's grade if they have a submission
-          // This assumes there's a way to get the student's last submission ID
-          // For now, we'll rely on the component to fetch it on demand
-        } catch (err) {
-          // No grade yet
-        }
+        await initializeOrFetchSubmission(assignmentId);
       }
     } catch (err: any) {
       setError(err.response?.data?.message || 'Failed to load assignment');
     } finally {
       setLoading(false);
     }
+  };
+
+  const initializeOrFetchSubmission = async (assignmentId: number) => {
+    try {
+      setSubmissionLoading(true);
+
+      // Try to fetch current submission first
+      const submission = await submissionApi.getCurrentSubmission(assignmentId);
+      
+      if (submission) {
+        setCurrentSubmission(submission);
+      } else {
+        // If no submission exists, auto-initialize one
+        const initialized = await submissionApi.startAssignment(assignmentId);
+        if (initialized && initialized.id) {
+          setCurrentSubmission(initialized);
+        }
+      }
+    } catch (err: any) {
+      console.warn('Could not initialize submission:', err);
+      // Don't block user if initialization fails - they can still submit
+    } finally {
+      setSubmissionLoading(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleString('vi-VN');
+    } catch {
+      return dateString;
+    }
+  };
+
+  const formatScore = (score?: number, maxScore?: number) => {
+    if (score === undefined || score === null) {
+      return 'Chưa chấm';
+    }
+    return maxScore ? `${score}/${maxScore}` : score.toString();
+  };
+
+  // Transform submission data for StudentSubmissionStatusTable (flatten grade object)
+  const getSubmissionForDisplay = () => {
+    if (!currentSubmission) return null;
+    return {
+      id: currentSubmission.id,
+      status: currentSubmission.status,
+      fileUrl: currentSubmission.fileUrl || '',
+      submittedAt: currentSubmission.submittedAt,
+      gradedAt: (currentSubmission as any)?.grade?.gradedAt,
+      score: (currentSubmission as any)?.grade?.score,
+      feedback: (currentSubmission as any)?.grade?.feedback,
+    };
   };
 
   const isDueDate = assignment ? new Date(assignment.dueDate) <= new Date() : false;
@@ -135,17 +219,6 @@ export default function AssignmentDetail({
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {isTeacher && assignment.type === AssignmentType.ESSAY && (
-              <button
-                onClick={() => setShowGradingModal(true)}
-                className="p-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
-                title="Chấm bài"
-              >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              </button>
-            )}
             {isTeacher && (
               <button
                 onClick={() => setShowDeleteModal(true)}
@@ -206,6 +279,17 @@ export default function AssignmentDetail({
             )}
           </div>
         </div>
+      )}
+
+      {/* TEACHER Grading Dashboard */}
+      {isTeacher && assignment.type === AssignmentType.ESSAY && (
+        <TeacherGradingDashboard
+          assignmentId={assignmentId}
+          maxScore={assignment.maxScore || 0}
+          onGradeSuccess={() => {
+            if (onRefresh) onRefresh();
+          }}
+        />
       )}
 
       {/* STUDENT View */}
@@ -281,8 +365,8 @@ export default function AssignmentDetail({
                       {attemptHistory.map((attempt) => (
                         <tr key={attempt.submissionId} className="border-b border-slate-100 hover:bg-slate-50">
                           <td className="px-4 py-3 text-slate-900">{attempt.attemptNumber}</td>
-                          <td className="px-4 py-3 text-slate-600">{attempt.getFormattedSubmittedAt()}</td>
-                          <td className="px-4 py-3 font-semibold text-slate-900">{attempt.getScoreDisplay()}</td>
+                          <td className="px-4 py-3 text-slate-600">{formatDate(attempt.submittedAt)}</td>
+                          <td className="px-4 py-3 font-semibold text-slate-900">{formatScore(attempt.score, attempt.maxScore)}</td>
                           <td className="px-4 py-3">
                             <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
                               attempt.status === 'GRADED'
@@ -313,33 +397,28 @@ export default function AssignmentDetail({
 
           {/* ESSAY Submission */}
           {assignment.type === AssignmentType.ESSAY && (
-            <div className="bg-white rounded-lg border border-slate-200 p-6">
-              <h3 className="text-lg font-semibold text-slate-900 mb-4">Nộp bài</h3>
-              <EssaySubmissionZone
-                assignmentId={assignmentId}
-                isDueDate={isDueDate}
-                onSubmitSuccess={() => {
-                  setRefreshSubmission((prev) => !prev);
-                }}
-              />
-
-              {/* Display Grade and Feedback */}
-              {studentGrade && (
-                <div className="mt-6 pt-6 border-t border-slate-200">
-                  <div className="flex items-center justify-between mb-4">
-                    <h4 className="text-lg font-semibold text-slate-900">Kết quả chấm</h4>
-                    <span className="text-3xl font-bold text-blue-600">{studentGrade.score}/{assignment.maxScore}</span>
-                  </div>
-                  
-                  {studentGrade.feedback && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <h5 className="text-sm font-semibold text-blue-900 mb-2">Nhận xét từ giáo viên:</h5>
-                      <p className="text-sm text-blue-700 whitespace-pre-wrap">{studentGrade.feedback}</p>
-                    </div>
-                  )}
+            <>
+              {/* Show submission status table if already submitted */}
+              {currentSubmission && currentSubmission.status === 'SUBMITTED' ? (
+                <StudentSubmissionStatusTable
+                  assignment={assignment}
+                  submission={getSubmissionForDisplay()!}
+                />
+              ) : (
+                // Show upload zone if not yet submitted
+                <div className="bg-white rounded-lg border border-slate-200 p-6">
+                  <h3 className="text-lg font-semibold text-slate-900 mb-4">Nộp bài</h3>
+                  <EssaySubmissionZone
+                    submissionId={currentSubmission?.id}
+                    assignmentId={assignmentId}
+                    isDueDate={isDueDate}
+                    onSubmitSuccess={() => {
+                      setRefreshSubmission((prev) => !prev);
+                    }}
+                  />
                 </div>
               )}
-            </div>
+            </>
           )}
         </>
       )}
@@ -353,16 +432,6 @@ export default function AssignmentDetail({
         onConfirm={() => {
           if (onRefresh) onRefresh();
           if (onClose) onClose();
-        }}
-      />
-
-      <GradingModal
-        isOpen={showGradingModal}
-        assignmentId={assignmentId}
-        maxScore={assignment?.maxScore || 0}
-        onClose={() => setShowGradingModal(false)}
-        onGradeSuccess={() => {
-          if (onRefresh) onRefresh();
         }}
       />
     </div>

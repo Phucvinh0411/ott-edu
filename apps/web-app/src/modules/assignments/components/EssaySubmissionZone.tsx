@@ -5,12 +5,14 @@ import { submissionApi } from '@/services/api/assignment.service';
 import { uploadFileToS3, validateFile } from '@/services/s3.service';
 
 interface EssaySubmissionZoneProps {
+  submissionId?: number; // Optional: submission ID from initialization
   assignmentId: number;
   isDueDate: boolean;
   onSubmitSuccess: () => void;
 }
 
 export default function EssaySubmissionZone({
+  submissionId,
   assignmentId,
   isDueDate,
   onSubmitSuccess,
@@ -69,10 +71,17 @@ export default function EssaySubmissionZone({
       setSubmitting(true);
 
       // Submit assignment
-      await submissionApi.submit(assignmentId, {
+      const submitData: any = {
         fileUrl,
         confirm: true,
-      });
+      };
+      
+      // Include submissionId if available
+      if (submissionId) {
+        submitData.submissionId = submissionId;
+      }
+      
+      await submissionApi.submit(assignmentId, submitData);
 
       setSuccess('Nộp bài thành công!');
       setFile(null);

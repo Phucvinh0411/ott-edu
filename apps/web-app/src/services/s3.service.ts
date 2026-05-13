@@ -18,9 +18,14 @@ export const uploadFileToS3 = async (file: File): Promise<string> => {
     
     // Mock delay simulating S3 upload
     setTimeout(() => {
-      const fileName = file.name;
+      // Normalize filename: replace spaces with underscores and remove special characters
+      const originalFileName = file.name;
+      const normalizedFileName = originalFileName
+        .replace(/\s+/g, '_')
+        .replace(/[^\x00-\x7F]/g, ''); // Remove non-ASCII characters (Vietnamese etc)
+      
       const timestamp = Date.now();
-      const key = `assignments/${timestamp}/${fileName}`;
+      const key = `assignments/${timestamp}/${normalizedFileName}`;
       
       // If baseUrl is configured, use it; otherwise construct S3 URL
       const s3Url = baseUrl 

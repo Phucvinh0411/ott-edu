@@ -328,4 +328,58 @@ public class SubmissionController {
                 response.put("remainingAttempts", remaining); // -1 means unlimited
                 return new ResponseEntity<>(response, HttpStatus.OK);
         }
+
+        /**
+         * POST /api/v1/submissions/assignment/{assignmentId}/start
+         * Initialize a new submission (STUDENT only)
+         * Creates a DRAFT submission for the student on the given assignment
+         */
+        @PreAuthorize("hasRole('STUDENT')")
+        @PostMapping("/assignment/{assignmentId}/start")
+        @Operation(summary = "Start an assignment", description = "Initialize a new submission for an assignment. " +
+                        "Creates a DRAFT submission record for the student. " +
+                        "Required before submitting an essay or quiz assignment.")
+        @ApiResponses(value = {
+                        @ApiResponse(responseCode = "200", description = "Submission initialized successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ViewSubmissionDto.class))),
+                        @ApiResponse(responseCode = "400", description = "Assignment already started or invalid request"),
+                        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+                        @ApiResponse(responseCode = "403", description = "Forbidden - student role required"),
+                        @ApiResponse(responseCode = "404", description = "Assignment not found")
+        })
+        public ResponseEntity<ViewSubmissionDto> startAssignment(
+                        @Parameter(description = "Assignment ID") @PathVariable Long assignmentId,
+                        Authentication authentication) {
+
+                Long studentAccountId = AuthUtil.extractUserId(authentication);
+                submissionService.startAssignment(assignmentId, studentAccountId);
+
+                // Get and return the created submission
+                ViewSubmissionDto submission = submissionService.getCurrentSubmission(assignmentId, studentAccountId);
+                return new ResponseEntity<>(submission, HttpStatus.OK);
+        }
+
+        /**
+         * GET /api/v1/submissions/assignment/{assignmentId}/current
+         * Get the current submission for an assignment (STUDENT only)
+         * Returns the active DRAFT or SUBMITTED submission
+         */
+        @PreAuthorize("hasRole('STUDENT')")
+        @GetMapping("/assignment/{assignmentId}/current")
+        @Operation(summary = "Get current submission", description = "Retrieve the current submission for a student on a specific assignment. "
+                        +
+                        "Returns DRAFT or SUBMITTED submission if one exists.")
+        @ApiResponses(value = {
+                        @ApiResponse(responseCode = "200", description = "Submission retrieved successfully", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ViewSubmissionDto.class))),
+                        @ApiResponse(responseCode = "401", description = "Unauthorized"),
+                        @ApiResponse(responseCode = "404", description = "No submission found for this assignment")
+        })
+        public ResponseEntity<ViewSubmissionDto> getCurrentSubmission(
+                        @Parameter(description = "Assignment ID") @PathVariable Long assignmentId,
+                        Authentication authentication) {
+
+                Long studentAccountId = AuthUtil.extractUserId(authentication);
+                ViewSubmissionDto submission = submissionService.getCurrentSubmission(assignmentId, studentAccountId);
+
+                return new ResponseEntity<>(submission, HttpStatus.OK);
+        }
 }

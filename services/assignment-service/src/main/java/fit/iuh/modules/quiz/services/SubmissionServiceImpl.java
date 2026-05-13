@@ -165,6 +165,7 @@ public class SubmissionServiceImpl implements SubmissionService {
         dto.setStatus(submission.getStatus());
         dto.setSubmittedAt(submission.getSubmittedAt());
         dto.setLate(submission.isLate());
+        dto.setFileUrl(submission.getFileUrl()); // For essay submissions
 
         if (submission.getGrade() != null) {
             dto.setGraded(true);
@@ -190,6 +191,7 @@ public class SubmissionServiceImpl implements SubmissionService {
         dto.setCreatedAt(submission.getCreatedAt());
         dto.setSubmittedAt(submission.getSubmittedAt());
         dto.setLate(submission.isLate());
+        dto.setFileUrl(submission.getFileUrl()); // For essay submissions
 
         // Assignment context
         dto.setAssignmentTitle(submission.getAssignment().getTitle());
@@ -328,9 +330,9 @@ public class SubmissionServiceImpl implements SubmissionService {
             // Store final essay content
         }
 
-        // Store file URL if provided
-        if (request.getFileUrl() != null) {
-            // Store submission file URL
+        // Store file URL if provided (for ESSAY type with file upload)
+        if (request.getFileUrl() != null && !request.getFileUrl().isEmpty()) {
+            submission.setFileUrl(request.getFileUrl());
         }
 
         // Mark as SUBMITTED
@@ -419,5 +421,46 @@ public class SubmissionServiceImpl implements SubmissionService {
 
         // Return remaining = maxAttempts - completedAttempts
         return Math.max(0, assignment.getMaxAttempts() - completedAttempts.intValue());
+    }
+
+    @Override
+    public void startAssignment(Long assignmentId, Long studentAccountId) {
+        // Get assignment
+        var assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> ResourceNotFoundException.assignmentNotFound(assignmentId));
+
+        // Check if student already has an active submission (DRAFT or SUBMITTED)
+        var existingSubmission = submissionRepository.findByAccountIdAndAssignmentId(studentAccountId, assignmentId);
+        if (existingSubmission.isPresent()) {
+            // Submission already exists - just return (idempotent)
+            return;
+        }
+
+        // Create new DRAFT submission
+        Submission submission = new Submission();
+        submission.setAccountId(studentAccountId);
+        submission.setAssignment(assignment);
+        submission.setStatus(SubmissionStatus.DRAFT);
+        submission.setCreatedAt(LocalDateTime.now());
+        submission.setUpdatedAt(LocalDateTime.now());
+
+        submissionRepository.save(submission);
+    }
+
+    @Override
+    public ViewSubmissionDto getCurrentSubmission(Long assignmentId, Long studentAccountId) {
+        // Get assignment
+        assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> ResourceNotFoundException.assignmentNotFound(assignmentId));
+
+        // Find the submission
+        var submission = submissionRepository.findByAccountIdAndAssignmentId(studentAccountId, assignmentId);
+
+        if (submission.isEmpty()) {
+            return null; // No submission found
+        }
+
+        // Convert to DTO
+        return toViewSubmissionDto(submission.get());
     }
 }

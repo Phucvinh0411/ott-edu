@@ -86,6 +86,18 @@ export const assignmentApi = {
  */
 export const submissionApi = {
   /**
+   * Start/Initialize a submission (creates submission record)
+   * Returns Submission object with submissionId
+   */
+  startAssignment: async (assignmentId: number): Promise<any> => {
+    const response = await axiosV1.post(
+      `/api/v1/submissions/assignment/${assignmentId}/start`,
+      {}
+    );
+    return response.data; // Returns ViewSubmissionDto with { id, submissionId, assignmentId, status, ... }
+  },
+
+  /**
    * Get attempt history for a student on a specific assignment
    */
   getAttemptHistory: async (assignmentId: number): Promise<AttemptHistory[]> => {
@@ -145,5 +157,22 @@ export const submissionApi = {
       `/api/v1/submissions/${submissionId}/grade`
     );
     return response.data;
+  },
+
+  /**
+   * Get current submission for a student on an assignment
+   */
+  getCurrentSubmission: async (assignmentId: number): Promise<any> => {
+    try {
+      const response = await axiosV1.get(
+        `/api/v1/submissions/assignment/${assignmentId}/current`
+      );
+      return response.data;
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        return null;
+      }
+      throw error;
+    }
   },
 };
