@@ -40,8 +40,9 @@ export default function EssaySubmissionZone({
       // Validate file
       validateFile(selectedFile);
       setFile(selectedFile);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const error = err as { message?: string };
+      setError(error.message || 'Lỗi file');
       setFile(null);
     }
   };
@@ -71,7 +72,7 @@ export default function EssaySubmissionZone({
       setSubmitting(true);
 
       // Submit assignment
-      const submitData: any = {
+      const submitData: Record<string, unknown> = {
         fileUrl,
         confirm: true,
       };
@@ -93,8 +94,9 @@ export default function EssaySubmissionZone({
       setTimeout(() => {
         onSubmitSuccess();
       }, 1500);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Nộp bài thất bại');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Nộp bài thất bại');
     } finally {
       setUploading(false);
       setSubmitting(false);

@@ -50,6 +50,7 @@ export default function TeacherGradingDashboard({
 
   useEffect(() => {
     loadPendingSubmissions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignmentId]);
 
   const loadPendingSubmissions = async () => {
@@ -67,7 +68,7 @@ export default function TeacherGradingDashboard({
         submissionsArray = response;
       } else if (response && typeof response === 'object') {
         // Paginated response with content property
-        const pageResponse = response as any;
+        const pageResponse = response as { content?: PendingSubmission[] };
         submissionsArray = Array.isArray(pageResponse.content) ? pageResponse.content : [];
       }
       
@@ -76,8 +77,9 @@ export default function TeacherGradingDashboard({
       if (submissionsArray && submissionsArray.length > 0) {
         setSelectedSubmission(submissionsArray[0]);
       }
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Không thể tải bài nộp');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Không thể tải bài nộp');
       console.error('Error loading pending submissions:', err);
     } finally {
       setLoading(false);
@@ -132,8 +134,9 @@ export default function TeacherGradingDashboard({
       if (onGradeSuccess) {
         onGradeSuccess();
       }
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Lưu điểm thất bại');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Lưu điểm thất bại');
     } finally {
       setSubmitting(false);
     }

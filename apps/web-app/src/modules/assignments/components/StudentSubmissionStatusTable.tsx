@@ -30,7 +30,6 @@ export default function StudentSubmissionStatusTable({
   const statusInfo = useMemo(() => {
     const dueDate = new Date(assignment.dueDate);
     const submittedAt = new Date(submission.submittedAt);
-    const now = new Date();
 
     // Calculate time difference
     const timeDiff = submittedAt.getTime() - dueDate.getTime();

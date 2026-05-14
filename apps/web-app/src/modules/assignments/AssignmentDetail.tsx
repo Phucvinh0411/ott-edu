@@ -43,16 +43,16 @@ export default function AssignmentDetail({
   const [attemptHistory, setAttemptHistory] = useState<AttemptHistory[]>([]);
   const [attemptStatus, setAttemptStatus] = useState<AttemptStatus | null>(null);
   const [currentSubmission, setCurrentSubmission] = useState<StudentSubmission | null>(null);
-  const [submissionLoading, setSubmissionLoading] = useState(false);
-  
+
   // Feature 1: Delete modal
   const [showDeleteModal, setShowDeleteModal] = useState(false);
-  
+
   // Feature 4: Refresh submission for post-submit status table
   const [refreshSubmission, setRefreshSubmission] = useState(false);
 
   useEffect(() => {
     loadAssignmentDetail();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assignmentId, refreshSubmission]);
 
   // Feature 5: Poll for grade updates (student waiting for teacher grading)
@@ -102,8 +102,9 @@ export default function AssignmentDetail({
       if (!isTeacher && detail.type === AssignmentType.ESSAY) {
         await initializeOrFetchSubmission(assignmentId);
       }
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load assignment');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to load assignment');
     } finally {
       setLoading(false);
     }
@@ -111,11 +112,9 @@ export default function AssignmentDetail({
 
   const initializeOrFetchSubmission = async (assignmentId: number) => {
     try {
-      setSubmissionLoading(true);
-
       // Try to fetch current submission first
       const submission = await submissionApi.getCurrentSubmission(assignmentId);
-      
+
       if (submission) {
         setCurrentSubmission(submission);
       } else {
@@ -125,11 +124,9 @@ export default function AssignmentDetail({
           setCurrentSubmission(initialized);
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.warn('Could not initialize submission:', err);
       // Don't block user if initialization fails - they can still submit
-    } finally {
-      setSubmissionLoading(false);
     }
   };
 
@@ -157,9 +154,9 @@ export default function AssignmentDetail({
       status: currentSubmission.status,
       fileUrl: currentSubmission.fileUrl || '',
       submittedAt: currentSubmission.submittedAt,
-      gradedAt: (currentSubmission as any)?.grade?.gradedAt,
-      score: (currentSubmission as any)?.grade?.score,
-      feedback: (currentSubmission as any)?.grade?.feedback,
+      gradedAt: (currentSubmission as unknown as { grade?: { gradedAt?: string } })?.grade?.gradedAt,
+      score: (currentSubmission as unknown as { grade?: { score?: number } })?.grade?.score,
+      feedback: (currentSubmission as unknown as { grade?: { feedback?: string } })?.grade?.feedback,
     };
   };
 
@@ -204,11 +201,10 @@ export default function AssignmentDetail({
                 </svg>
                 Điểm: {assignment.maxScore}
               </span>
-              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                assignment.type === AssignmentType.QUIZ
+              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${assignment.type === AssignmentType.QUIZ
                   ? 'bg-purple-100 text-purple-700'
                   : 'bg-blue-100 text-blue-700'
-              }`}>
+                }`}>
                 {assignment.type === AssignmentType.QUIZ ? 'Trắc nghiệm' : 'Luận'}
               </span>
               {isDueDate && (
@@ -257,7 +253,7 @@ export default function AssignmentDetail({
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
-            Thông tin giáo viên
+            Thông tin từ giáo viên
           </h3>
           <div className="space-y-2 text-sm text-blue-900">
             {assignment.type === AssignmentType.QUIZ && assignment.maxAttempts && (
@@ -335,11 +331,10 @@ export default function AssignmentDetail({
                 <button
                   onClick={() => router.push(`/assignments/${assignmentId}/quiz`)}
                   disabled={isDueDate}
-                  className={`w-full py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 mb-6 ${
-                    isDueDate
+                  className={`w-full py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 mb-6 ${isDueDate
                       ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                       : 'bg-blue-600 text-white hover:bg-blue-700'
-                  }`}
+                    }`}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.828 14.828a4 4 0 01-5.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -368,13 +363,12 @@ export default function AssignmentDetail({
                           <td className="px-4 py-3 text-slate-600">{formatDate(attempt.submittedAt)}</td>
                           <td className="px-4 py-3 font-semibold text-slate-900">{formatScore(attempt.score, attempt.maxScore)}</td>
                           <td className="px-4 py-3">
-                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                              attempt.status === 'GRADED'
+                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${attempt.status === 'GRADED'
                                 ? 'bg-green-100 text-green-700'
                                 : attempt.status === 'SUBMITTED'
-                                ? 'bg-yellow-100 text-yellow-700'
-                                : 'bg-slate-100 text-slate-700'
-                            }`}>
+                                  ? 'bg-yellow-100 text-yellow-700'
+                                  : 'bg-slate-100 text-slate-700'
+                              }`}>
                               {attempt.status === 'GRADED' ? 'Đã chấm' : attempt.status === 'SUBMITTED' ? 'Đã nộp' : 'Nháp'}
                             </span>
                           </td>

@@ -40,6 +40,7 @@ export default function AssignmentsTab({
   // Fetch assignments when component mounts or refreshTrigger changes
   useEffect(() => {
     loadAssignments();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [resolvedTeamId, refreshTrigger]);
 
   const loadAssignments = async () => {
@@ -49,8 +50,9 @@ export default function AssignmentsTab({
 
       const response = await assignmentApi.getByTeam(resolvedTeamId);
       setAssignments(response.content || response);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Failed to load assignments');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Failed to load assignments');
     } finally {
       setLoading(false);
     }
@@ -162,7 +164,7 @@ export default function AssignmentsTab({
             </div>
           ) : filteredAssignments.length === 0 ? (
             // Empty State
-            <EmptyState activeTab={activeTab} isTeacher={isTeacher} onCreateClick={() => setIsCreateModalOpen(true)} />
+            <EmptyState activeTab={activeTab} />
           ) : (
             // Assignment Cards List
             <div className="space-y-3 p-6">
@@ -278,11 +280,9 @@ function AssignmentCard({ assignment, onClick }: AssignmentCardProps) {
  */
 interface EmptyStateProps {
   activeTab: Tab;
-  isTeacher: boolean;
-  onCreateClick: () => void;
 }
 
-function EmptyState({ activeTab, isTeacher, onCreateClick }: EmptyStateProps) {
+function EmptyState({ activeTab }: EmptyStateProps) {
   return (
     <div className="flex flex-col items-center justify-center py-16 px-4">
       <svg className="w-24 h-24 text-slate-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -91,16 +91,17 @@ export default function CreateAssignmentModal({
 
       console.log('Creating assignment with payload:', JSON.stringify(requestPayload, null, 2));
       
-      const response = await assignmentApi.create(requestPayload as any);
+      const response = await assignmentApi.create(requestPayload as unknown as CreateAssignmentFormData);
       console.log('Assignment created successfully:', response);
 
       // Success
       reset();
       onSuccess();
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Create assignment error:', err);
-      const errorMessage = err.response?.data?.message || err.message || 'Failed to create assignment';
+      const error = err as { response?: { data?: { message?: string } }, message?: string };
+      const errorMessage = error.response?.data?.message || error.message || 'Failed to create assignment';
       setError(errorMessage);
     } finally {
       setIsLoading(false);

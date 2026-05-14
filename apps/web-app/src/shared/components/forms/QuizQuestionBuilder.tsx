@@ -54,7 +54,7 @@ export default function QuizQuestionBuilder({
           <svg className="w-12 h-12 text-slate-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          <p className="text-slate-500 text-sm">Chưa có câu hỏi. Nhấp "Thêm câu hỏi" để bắt đầu.</p>
+          <p className="text-slate-500 text-sm">Chưa có câu hỏi. Nhấp &quot;Thêm câu hỏi&quot; để bắt đầu.</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -179,7 +179,7 @@ function QuestionCard({
                     type="radio"
                     {...register(`questions.${questionIndex}.options.${oIndex}.isCorrect` as const)}
                     value="true"
-                    onChange={(e) => {
+                    onChange={() => {
                       // Radio will handle the true/false value
                     }}
                     className="w-4 h-4 text-blue-600 focus:ring-blue-500 cursor-pointer"

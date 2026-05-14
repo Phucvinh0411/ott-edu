@@ -12,11 +12,10 @@ interface MaterialUploadZoneProps {
 
 export default function MaterialUploadZone({
   control,
-  errors,
 }: MaterialUploadZoneProps) {
   const { fields: materialFields, append: appendMaterial, remove: removeMaterial } = useFieldArray({
     control,
-    name: 'materialUrls' as any,
+    name: 'materialUrls' as "materialUrls",
   });
 
   // Watch the actual string values from form state
@@ -48,9 +47,10 @@ export default function MaterialUploadZone({
         console.log('Uploaded S3 URL:', s3Url);
         appendMaterial(s3Url);
         setUploadError(null);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Upload error:', err);
-        setUploadError(err.message || 'Upload failed');
+        const error = err as { message?: string };
+        setUploadError(error.message || 'Upload failed');
       } finally {
         setUploading(false);
       }

@@ -99,9 +99,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   incomingCaller = null,
   activeCall = null,
   callHistory = [],
-  isLoadingCallHistory = false,
-  callHistoryPage = 1,
-  callHistoryTotalPages = 1,
+  isLoadingCallHistory: _isLoadingCallHistory = false,
+  callHistoryPage: _callHistoryPage = 1,
+  callHistoryTotalPages: _callHistoryTotalPages = 1,
   isMicrophoneEnabled = true,
   isCameraEnabled = true,
   isScreenSharing = false,
@@ -236,8 +236,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   }, [localMessages]);
 
   useEffect(() => {
+    const currentRefs = remoteVideoRefs.current;
     remoteStreamsList.forEach(([userId, stream]) => {
-      const el = remoteVideoRefs.current.get(userId);
+      const el = currentRefs.get(userId);
       if (!el) return;
 
       if (el.srcObject !== stream) {
@@ -265,7 +266,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     });
 
     return () => {
-      remoteVideoRefs.current.forEach((el) => {
+      currentRefs.forEach((el) => {
         el.oncanplay = null;
       });
     };
@@ -898,6 +899,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     }
   };
 
+  /*
   const handleRevoke = (messageId: string) => {
     if (socket && conversation) {
       socket.emit("revokeMessage", {
@@ -906,6 +908,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       });
     }
   };
+  */
 
   const handleRevokeForAll = (messageId: string) => {
     if (!socket || !conversation) return;

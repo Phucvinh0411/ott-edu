@@ -48,7 +48,7 @@ export const assignmentApi = {
   /**
    * Get assignments for a team (STUDENT view)
    */
-  getByTeam: async (teamId: number, page = 0, size = 20): Promise<any> => {
+  getByTeam: async (teamId: number, page = 0, size = 20): Promise<unknown> => {
     const response = await axiosV1.get(
       `/api/v1/assignments/team/${teamId}?page=${page}&size=${size}`
     );
@@ -70,9 +70,9 @@ export const assignmentApi = {
     try {
       // Try PATCH first (more common for archive operations)
       await axiosV1.patch(`/api/v1/assignments/${assignmentId}/archive`);
-    } catch (error: any) {
+    } catch (error: unknown) {
       // If PATCH fails, try DELETE
-      if (error.response?.status === 405 || error.response?.status === 404) {
+      if ((error as { response?: { status?: number } }).response?.status === 405 || (error as { response?: { status?: number } }).response?.status === 404) {
         await axiosV1.delete(`/api/v1/assignments/${assignmentId}/archive`);
       } else {
         throw error;
@@ -89,7 +89,7 @@ export const submissionApi = {
    * Start/Initialize a submission (creates submission record)
    * Returns Submission object with submissionId
    */
-  startAssignment: async (assignmentId: number): Promise<any> => {
+  startAssignment: async (assignmentId: number): Promise<unknown> => {
     const response = await axiosV1.post(
       `/api/v1/submissions/assignment/${assignmentId}/start`,
       {}
@@ -120,7 +120,7 @@ export const submissionApi = {
   /**
    * Submit an assignment (essay or quiz)
    */
-  submit: async (assignmentId: number, data: any): Promise<any> => {
+  submit: async (assignmentId: number, data: unknown): Promise<unknown> => {
     const response = await axiosV1.post(
       `/api/v1/submissions/assignment/${assignmentId}/submit`,
       data
@@ -131,7 +131,7 @@ export const submissionApi = {
   /**
    * Get pending submissions for teacher grading
    */
-  getPendingSubmissions: async (assignmentId: number): Promise<any[]> => {
+  getPendingSubmissions: async (assignmentId: number): Promise<unknown[]> => {
     const response = await axiosV1.get(
       `/api/v1/submissions/assignment/${assignmentId}/pending`
     );
@@ -141,7 +141,7 @@ export const submissionApi = {
   /**
    * Grade a submission (TEACHER only)
    */
-  gradeSubmission: async (submissionId: number, data: { score: number; feedback: string }): Promise<any> => {
+  gradeSubmission: async (submissionId: number, data: { score: number; feedback: string }): Promise<unknown> => {
     const response = await axiosV1.post(
       `/api/v1/submissions/${submissionId}/grade`,
       data
@@ -152,7 +152,7 @@ export const submissionApi = {
   /**
    * Get grade and feedback for a submission (STUDENT view)
    */
-  getGrade: async (submissionId: number): Promise<any> => {
+  getGrade: async (submissionId: number): Promise<unknown> => {
     const response = await axiosV1.get(
       `/api/v1/submissions/${submissionId}/grade`
     );
@@ -162,14 +162,14 @@ export const submissionApi = {
   /**
    * Get current submission for a student on an assignment
    */
-  getCurrentSubmission: async (assignmentId: number): Promise<any> => {
+  getCurrentSubmission: async (assignmentId: number): Promise<unknown> => {
     try {
       const response = await axiosV1.get(
         `/api/v1/submissions/assignment/${assignmentId}/current`
       );
       return response.data;
-    } catch (error: any) {
-      if (error.response?.status === 404) {
+    } catch (error: unknown) {
+      if ((error as { response?: { status?: number } }).response?.status === 404) {
         return null;
       }
       throw error;

@@ -39,6 +39,7 @@ export default function GradingModal({
     if (isOpen) {
       fetchPendingSubmissions();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, assignmentId]);
 
   const fetchPendingSubmissions = async () => {
@@ -47,8 +48,9 @@ export default function GradingModal({
       setError(null);
       const data = await submissionApi.getPendingSubmissions(assignmentId);
       setPending(data);
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Lỗi tải danh sách chấm');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Lỗi tải danh sách chấm');
     } finally {
       setLoading(false);
     }
@@ -83,8 +85,9 @@ export default function GradingModal({
       setFeedback('');
 
       onGradeSuccess();
-    } catch (err: any) {
-      setError(err.response?.data?.message || 'Chấm bài thất bại');
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { message?: string } } };
+      setError(error.response?.data?.message || 'Chấm bài thất bại');
     } finally {
       setGrading(false);
     }

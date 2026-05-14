@@ -33,15 +33,16 @@ export default function ConfirmDeleteModal({
       // Success - call callbacks
       if (onConfirm) onConfirm();
       if (onClose) onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
+      const error = err as { message: string; response?: { status?: number; statusText?: string; data?: { message?: string } } };
       console.error('Delete error:', {
-        message: err.message,
-        status: err.response?.status,
-        statusText: err.response?.statusText,
-        data: err.response?.data,
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
       });
       
-      const errorMsg = err.response?.data?.message || err.message || 'Xóa bài tập thất bại';
+      const errorMsg = error.response?.data?.message || error.message || 'Xóa bài tập thất bại';
       setError(errorMsg);
     } finally {
       setLoading(false);
@@ -77,7 +78,7 @@ export default function ConfirmDeleteModal({
         {/* Content */}
         <div className="px-6 py-4 space-y-4">
           <p className="text-slate-600">
-            Bạn có chắc chắn muốn xóa bài tập <strong className="text-slate-900">"{assignmentTitle}"</strong>? Hành động này không thể hoàn tác.
+            Bạn có chắc chắn muốn xóa bài tập <strong className="text-slate-900">&quot;{assignmentTitle}&quot;</strong>? Hành động này không thể hoàn tác.
           </p>
 
           {error && (
