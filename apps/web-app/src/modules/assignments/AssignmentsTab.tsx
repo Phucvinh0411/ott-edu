@@ -10,10 +10,10 @@ import AssignmentDetail from './AssignmentDetail';
 
 type Tab = 'upcoming' | 'pastdue';
 
-export default function AssignmentsTab({ 
-  teamId, 
-  filterType 
-}: { 
+export default function AssignmentsTab({
+  teamId,
+  filterType
+}: {
   teamId?: number;
   filterType?: 'ESSAY' | 'QUIZ';
 }) {
@@ -112,11 +112,10 @@ export default function AssignmentsTab({
         <div className="flex gap-1 border-b border-slate-200 bg-white rounded-t-lg">
           <button
             onClick={() => setActiveTab('upcoming')}
-            className={`px-6 py-4 font-medium transition-colors relative ${
-              activeTab === 'upcoming'
+            className={`px-6 py-4 font-medium transition-colors relative ${activeTab === 'upcoming'
                 ? 'text-blue-600'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             Sắp đến hạn
             <span className="ml-2 text-xs font-semibold px-2 py-1 rounded-full bg-blue-100 text-blue-700">
@@ -128,11 +127,10 @@ export default function AssignmentsTab({
           </button>
           <button
             onClick={() => setActiveTab('pastdue')}
-            className={`px-6 py-4 font-medium transition-colors relative ${
-              activeTab === 'pastdue'
+            className={`px-6 py-4 font-medium transition-colors relative ${activeTab === 'pastdue'
                 ? 'text-blue-600'
                 : 'text-slate-600 hover:text-slate-900'
-            }`}
+              }`}
           >
             Đã qua hạn / Đã hoàn thành
             <span className="ml-2 text-xs font-semibold px-2 py-1 rounded-full bg-slate-100 text-slate-700">
@@ -249,11 +247,10 @@ function AssignmentCard({ assignment, onClick }: AssignmentCardProps) {
         {/* Status Badge */}
         <div className="flex flex-col items-end gap-2 flex-shrink-0">
           <span
-            className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${
-              assignment.type === AssignmentType.QUIZ
+            className={`px-3 py-1 rounded-full text-xs font-semibold whitespace-nowrap ${assignment.type === AssignmentType.QUIZ
                 ? 'bg-purple-100 text-purple-700'
                 : 'bg-blue-100 text-blue-700'
-            }`}
+              }`}
           >
             {assignment.type === AssignmentType.QUIZ ? 'Trắc nghiệm' : 'Luận'}
           </span>

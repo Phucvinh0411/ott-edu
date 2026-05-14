@@ -104,7 +104,7 @@ export default function MaterialUploadZone({
               // Get the actual URL value from watched materialUrls array
               const materialUrl = materialUrls?.[index] || '';
               const fileName = materialUrl.split('/').pop() || 'File';
-              
+
               return (
                 <div key={field.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-200">
                   <div className="flex items-center gap-2 flex-1 min-w-0">

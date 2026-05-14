@@ -75,22 +75,22 @@ export default function CreateAssignmentModal({
         maxScore: Number(data.maxScore), // ✅ Ensure it's a number
         teamIds: data.teamIds && data.teamIds.length > 0 ? data.teamIds : [parseInt(String(teamId), 10)],
         maxAttempts: data.type === AssignmentType.QUIZ && data.maxAttempts ? Number(data.maxAttempts) : undefined,
-        materialUrls: data.type === AssignmentType.ESSAY && data.materialUrls && data.materialUrls.length > 0 
-          ? data.materialUrls.filter(url => url && url.trim().length > 0) 
+        materialUrls: data.type === AssignmentType.ESSAY && data.materialUrls && data.materialUrls.length > 0
+          ? data.materialUrls.filter(url => url && url.trim().length > 0)
           : undefined,
-        questions: data.type === AssignmentType.QUIZ && data.questions && data.questions.length > 0 
-          ? data.questions 
+        questions: data.type === AssignmentType.QUIZ && data.questions && data.questions.length > 0
+          ? data.questions
           : undefined,
       };
 
       // Remove undefined fields to avoid backend issues
-      Object.keys(requestPayload).forEach(key => 
-        requestPayload[key as keyof typeof requestPayload] === undefined && 
+      Object.keys(requestPayload).forEach(key =>
+        requestPayload[key as keyof typeof requestPayload] === undefined &&
         delete requestPayload[key as keyof typeof requestPayload]
       );
 
       console.log('Creating assignment with payload:', JSON.stringify(requestPayload, null, 2));
-      
+
       const response = await assignmentApi.create(requestPayload as unknown as CreateAssignmentFormData);
       console.log('Assignment created successfully:', response);
 
@@ -155,11 +155,10 @@ export default function CreateAssignmentModal({
               type="text"
               {...register('title', { required: 'Nhập tiêu đề' })}
               placeholder="Nhập tiêu đề bài tập..."
-              className={`w-full px-4 py-2.5 rounded-lg border text-sm transition-colors ${
-                errors.title
+              className={`w-full px-4 py-2.5 rounded-lg border text-sm transition-colors ${errors.title
                   ? 'border-red-300 bg-red-50 focus:border-red-500 focus:outline-none'
                   : 'border-slate-300 bg-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
-              }`}
+                }`}
             />
             {errors.title && <p className="mt-1 text-xs text-red-600">{errors.title.message}</p>}
           </div>
@@ -198,11 +197,10 @@ export default function CreateAssignmentModal({
                 {...register('maxScore', { required: 'Nhập tổng điểm', min: { value: 1, message: 'Phải >= 1' } })}
                 min={1}
                 max={1000}
-                className={`w-full px-4 py-2.5 rounded-lg border text-sm transition-colors ${
-                  errors.maxScore
+                className={`w-full px-4 py-2.5 rounded-lg border text-sm transition-colors ${errors.maxScore
                     ? 'border-red-300 bg-red-50 focus:border-red-500 focus:outline-none'
                     : 'border-slate-300 bg-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
-                }`}
+                  }`}
               />
               {errors.maxScore && <p className="mt-1 text-xs text-red-600">{errors.maxScore.message}</p>}
             </div>
@@ -216,11 +214,10 @@ export default function CreateAssignmentModal({
             <input
               type="datetime-local"
               {...register('dueDate', { required: 'Chọn hạn nộp' })}
-              className={`w-full px-4 py-2.5 rounded-lg border text-sm transition-colors ${
-                errors.dueDate
+              className={`w-full px-4 py-2.5 rounded-lg border text-sm transition-colors ${errors.dueDate
                   ? 'border-red-300 bg-red-50 focus:border-red-500 focus:outline-none'
                   : 'border-slate-300 bg-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
-              }`}
+                }`}
             />
             {errors.dueDate && <p className="mt-1 text-xs text-red-600">{errors.dueDate.message}</p>}
           </div>

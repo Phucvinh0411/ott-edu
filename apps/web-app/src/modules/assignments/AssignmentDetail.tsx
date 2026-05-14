@@ -202,8 +202,8 @@ export default function AssignmentDetail({
                 Điểm: {assignment.maxScore}
               </span>
               <span className={`px-3 py-1 rounded-full text-xs font-semibold ${assignment.type === AssignmentType.QUIZ
-                  ? 'bg-purple-100 text-purple-700'
-                  : 'bg-blue-100 text-blue-700'
+                ? 'bg-purple-100 text-purple-700'
+                : 'bg-blue-100 text-blue-700'
                 }`}>
                 {assignment.type === AssignmentType.QUIZ ? 'Trắc nghiệm' : 'Luận'}
               </span>
@@ -332,8 +332,8 @@ export default function AssignmentDetail({
                   onClick={() => router.push(`/assignments/${assignmentId}/quiz`)}
                   disabled={isDueDate}
                   className={`w-full py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 mb-6 ${isDueDate
-                      ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
-                      : 'bg-blue-600 text-white hover:bg-blue-700'
+                    ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
+                    : 'bg-blue-600 text-white hover:bg-blue-700'
                     }`}
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -364,10 +364,10 @@ export default function AssignmentDetail({
                           <td className="px-4 py-3 font-semibold text-slate-900">{formatScore(attempt.score, attempt.maxScore)}</td>
                           <td className="px-4 py-3">
                             <span className={`px-2 py-1 rounded-full text-xs font-semibold ${attempt.status === 'GRADED'
-                                ? 'bg-green-100 text-green-700'
-                                : attempt.status === 'SUBMITTED'
-                                  ? 'bg-yellow-100 text-yellow-700'
-                                  : 'bg-slate-100 text-slate-700'
+                              ? 'bg-green-100 text-green-700'
+                              : attempt.status === 'SUBMITTED'
+                                ? 'bg-yellow-100 text-yellow-700'
+                                : 'bg-slate-100 text-slate-700'
                               }`}>
                               {attempt.status === 'GRADED' ? 'Đã chấm' : attempt.status === 'SUBMITTED' ? 'Đã nộp' : 'Nháp'}
                             </span>

@@ -59,10 +59,10 @@ export default function TeacherGradingDashboard({
       setError(null);
 
       const response = await submissionApi.getPendingSubmissions(assignmentId);
-      
+
       // Handle paginated response (Spring Page object or direct array)
       let submissionsArray: PendingSubmission[] = [];
-      
+
       if (Array.isArray(response)) {
         // Direct array response
         submissionsArray = response;
@@ -71,7 +71,7 @@ export default function TeacherGradingDashboard({
         const pageResponse = response as { content?: PendingSubmission[] };
         submissionsArray = Array.isArray(pageResponse.content) ? pageResponse.content : [];
       }
-      
+
       setPendingSubmissions(submissionsArray);
 
       if (submissionsArray && submissionsArray.length > 0) {
@@ -236,11 +236,10 @@ export default function TeacherGradingDashboard({
                 <button
                   key={submission.submissionId}
                   onClick={() => handleSelectSubmission(submission)}
-                  className={`w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-blue-50 transition-colors ${
-                    selectedSubmission?.submissionId === submission.submissionId
+                  className={`w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-blue-50 transition-colors ${selectedSubmission?.submissionId === submission.submissionId
                       ? 'bg-blue-50 border-l-4 border-l-blue-600'
                       : ''
-                  }`}
+                    }`}
                 >
                   <p className="font-medium text-slate-900 text-sm truncate">
                     {submission.studentName || `Học sinh #${submission.studentAccountId}`}
@@ -340,11 +339,10 @@ export default function TeacherGradingDashboard({
                 <button
                   onClick={handleSubmitGrade}
                   disabled={submitting || score === ''}
-                  className={`w-full py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${
-                    submitting || score === ''
+                  className={`w-full py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${submitting || score === ''
                       ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                       : 'bg-blue-600 text-white hover:bg-blue-700'
-                  }`}
+                    }`}
                 >
                   {submitting ? (
                     <>
