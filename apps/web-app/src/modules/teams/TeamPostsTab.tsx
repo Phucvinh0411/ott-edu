@@ -644,14 +644,14 @@ export default function TeamPostsTab({ teamId: routeTeamId }: TeamPostsTabProps)
     } else if (data.action === 'deleted') {
       setPosts(prev => prev.filter(p => p.id !== data.id));
     }
-  }, [fetchPosts]);
+  },);
 
   useSocketListener(socket, 'comment_updated', async (data: { postId?: string }) => {
     console.log('[Socket] comment_updated event received:', data);
     if (data.postId) {
       await loadCommentsForPost(data.postId);
     }
-  }, []);
+  },);
 
   useSocketListener(socket, 'reaction_updated', async (data: { targetId?: string }) => {
     console.log('[Socket] reaction_updated event received:', data);
@@ -659,7 +659,7 @@ export default function TeamPostsTab({ teamId: routeTeamId }: TeamPostsTabProps)
       // Refresh reaction count by reloading posts or just the targeted post
       await fetchPosts();
     }
-  }, [fetchPosts]);
+  },);
 
   const scrollToTop = () => feedStartRef.current?.scrollIntoView({ behavior: "smooth" });
 
