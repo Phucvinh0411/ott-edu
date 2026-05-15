@@ -72,7 +72,7 @@ const LinkPreview = ({ preview }: { preview: LinkPreviewType }) => {
       {preview.image && (
         <Image
           source={{ uri: preview.image }}
-          style={styles.linkPreviewImage}
+          style={styles.linkPreviewImage as any}
           resizeMode="cover"
         />
       )}
@@ -140,7 +140,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
             <TouchableOpacity onPress={() => sender && onOpenProfile?.(sender)}>
               <Image
                 source={{ uri: sender?.avatarUrl || `https://i.pravatar.cc/150?u=${message.senderId}` }}
-                style={styles.avatar}
+                style={styles.avatar as any}
               />
             </TouchableOpacity>
           ) : <View style={styles.avatarPlaceholder} />
@@ -194,7 +194,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
               if (isImg) {
                 return (
                   <TouchableOpacity key={i} onPress={() => Linking.openURL(file.url)} style={styles.attachmentMargin}>
-                    <Image source={{ uri: file.url }} style={styles.imageAttachment} resizeMode="cover" />
+                    <Image source={{ uri: file.url }} style={styles.imageAttachment as any} resizeMode="cover" />
                   </TouchableOpacity>
                 );
               }
@@ -320,7 +320,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    alignItems: 'end',
+    alignItems: 'flex-end',
     paddingHorizontal: 12,
     marginBottom: 4,
   },

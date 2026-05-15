@@ -242,7 +242,7 @@ const styles = StyleSheet.create({
   attachmentName: { fontSize: 12, color: '#1E40AF', flex: 1, marginRight: 4 },
   modalOverlay: {
     flex: 1,
-    justifyContent: 'end',
+    justifyContent: 'flex-end',
     backgroundColor: 'rgba(0,0,0,0.3)',
   },
   modalContent: {
