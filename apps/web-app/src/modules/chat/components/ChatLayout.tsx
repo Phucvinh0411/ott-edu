@@ -156,12 +156,14 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
   });
 
   // Provide a compatibility wrapper used elsewhere for private calls
+  /*
   const startVideoCall = useCallback(
     async ({ toUserId, conversationId }: { toUserId: string; conversationId: string }) => {
       await startGroupCall(conversationId);
     },
     [startGroupCall],
   );
+  */
 
   // Derive the first remote stream (used by some components)
   const remoteStream = React.useMemo(() => {
@@ -873,12 +875,14 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
     [conversations, activeConversationId, draftReceiver, currentUser],
   );
 
+  /*
   const activePrivatePeer =
     activeConversation?.type === "private"
       ? activeConversation.participants.find(
           (participant) => participant.id !== currentUserId,
         ) || null
       : null;
+  */
 
   const isCallableConversation =
     activeConversation !== null && !activeConversation.id.startsWith("draft_");
