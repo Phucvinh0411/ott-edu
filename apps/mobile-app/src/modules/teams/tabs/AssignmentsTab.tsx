@@ -37,7 +37,8 @@ import CreateAssignmentScreen from "../../assignments/screens/CreateAssignmentSc
 import GradingListScreen from "../../assignments/screens/GradingListScreen";
 import TakeQuizScreen from "../../assignments/screens/TakeQuizScreen";
 import QuizReviewScreen from "../../assignments/screens/QuizReviewScreen";
-import type { AssignmentDetail, Submission } from "../../assignments/assignment.types";
+import type { AssignmentDetail } from "../../assignments/assignment.types";
+import type { ViewSubmission } from "../../assignments/assignment.api";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -52,7 +53,7 @@ type Screen =
   | { name: "grading"; assignment: Assignment }
   | { name: "create" }
   | { name: "quiz"; detail: AssignmentDetail; submissionId?: number }
-  | { name: "review"; detail: AssignmentDetail; submission: Submission };
+  | { name: "review"; detail: AssignmentDetail; submission: ViewSubmission };
 
 // ─── Section data ─────────────────────────────────────────────────────────────
 

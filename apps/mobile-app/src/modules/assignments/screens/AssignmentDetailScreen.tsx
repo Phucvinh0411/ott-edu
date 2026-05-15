@@ -15,7 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { format, isPast, isValid } from "date-fns";
 
-import { assignmentApi } from "../assignment.api";
+import { assignmentApi, type ViewSubmission } from "../assignment.api";
 import {
   AssignmentType,
   SubmissionStatus,
@@ -35,15 +35,15 @@ export type AssignmentDetailScreenProps = {
   /** Called when student taps "ẮĐU BẸ" on a QUIZ — parent handles quiz navigation */
   onStartQuiz: (detail: AssignmentDetail, submissionId?: number) => void;
   /** Called when student wants to review their quiz submission */
-  onReviewQuiz: (detail: AssignmentDetail, submission: Submission) => void;
+  onReviewQuiz: (detail: AssignmentDetail, submission: ViewSubmission) => void;
 };
 
 // Discriminated union for all possible student states
 type StudentView =
   | { kind: "loading" }
   | { kind: "error"; message: string }
-  | { kind: "graded"; detail: AssignmentDetail; submission: Submission; grade: GradeDetails }
-  | { kind: "submitted"; detail: AssignmentDetail; submission: Submission }
+  | { kind: "graded"; detail: AssignmentDetail; submission: ViewSubmission; grade: GradeDetails }
+  | { kind: "submitted"; detail: AssignmentDetail; submission: ViewSubmission }
   | { kind: "pending_essay"; detail: AssignmentDetail; hasDraft?: boolean }
   | { kind: "pending_quiz"; detail: AssignmentDetail; submissionId?: number };
 
@@ -213,19 +213,12 @@ export default function AssignmentDetailScreen({
       }
 
       const submissionId = (submission.id ?? submission.submissionId) as number;
-      const compatSub = {
-        ...submission,
-        id: submissionId,
-        accountId: submission.accountId,
-        submittedAt: submission.submittedAt ?? "",
-        assignment: { id: submission.assignmentId },
-      } as unknown as Submission;
 
       // Backend keeps status=SUBMITTED even after grading.
       // Detect GRADED state by checking if grade object is present.
       const gradeData = submission.grade as unknown as GradeDetails | null | undefined;
       if (gradeData && typeof gradeData === "object" && "score" in gradeData) {
-        setView({ kind: "graded", detail, submission: compatSub, grade: gradeData });
+        setView({ kind: "graded", detail, submission, grade: gradeData });
         return;
       }
 
@@ -233,15 +226,15 @@ export default function AssignmentDetailScreen({
       if (submission.status === SubmissionStatus.GRADED) {
         try {
           const grade = await assignmentApi.getMyGrade(submissionId);
-          setView({ kind: "graded", detail, submission: compatSub, grade });
+          setView({ kind: "graded", detail, submission, grade });
         } catch {
-          setView({ kind: "submitted", detail, submission: compatSub });
+          setView({ kind: "submitted", detail, submission });
         }
         return;
       }
 
       if (submission.status === SubmissionStatus.SUBMITTED) {
-        setView({ kind: "submitted", detail, submission: compatSub });
+        setView({ kind: "submitted", detail, submission });
         return;
       }
 
@@ -405,7 +398,7 @@ export default function AssignmentDetailScreen({
               <Ionicons name="hourglass-outline" size={14} color="#6366f1" />
               <Text style={styles.sectionLabelText}>TRẠNG THÁI</Text>
             </View>
-            <AwaitingGradingCard submittedAt={view.submission.submittedAt} />
+            <AwaitingGradingCard submittedAt={view.submission.submittedAt ?? undefined} />
             {view.detail.type === AssignmentType.QUIZ && (
               <TouchableOpacity
                 style={styles.reviewBtn}
