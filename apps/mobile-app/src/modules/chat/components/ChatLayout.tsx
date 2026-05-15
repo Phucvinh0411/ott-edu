@@ -49,9 +49,12 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
   const [isGroupCallActive, setIsGroupCallActive] = useState(false);
   const [callConversationId, setCallConversationId] = useState<string | null>(null);
   const [callInitiatorUserId, setCallInitiatorUserId] = useState<string | null>(null);
+  const [callIsPrivate, setCallIsPrivate] = useState(false);
+  const [leaveSignal, setLeaveSignal] = useState(0);
   const [incomingCallRequest, setIncomingCallRequest] = useState<{
     conversationId: string;
     initiatorUserId: string;
+    isPrivate?: boolean;
   } | null>(null);
 
   // chatMongoId: MongoDB ObjectId của user hiện tại trong chat-service
@@ -86,11 +89,35 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
 
   const socketRef = useRef<Socket | null>(null);
   const activeConversationIdRef = useRef<string | null>(null);
+  const isCallActiveRef = useRef(false);
+  const conversationsRef = useRef<Conversation[]>([]);
+  const callConversationIdRef = useRef<string | null>(null);
+  const incomingCallRequestRef = useRef<{
+    conversationId: string;
+    initiatorUserId: string;
+    isPrivate?: boolean;
+  } | null>(null);
 
 
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId;
   }, [activeConversationId]);
+
+  useEffect(() => {
+    isCallActiveRef.current = isGroupCallActive;
+  }, [isGroupCallActive]);
+
+  useEffect(() => {
+    callConversationIdRef.current = callConversationId;
+  }, [callConversationId]);
+
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
+
+  useEffect(() => {
+    incomingCallRequestRef.current = incomingCallRequest;
+  }, [incomingCallRequest]);
 
   useEffect(() => {
     // Chỉ connect socket khi đã có chatMongoId (MongoDB _id) thay vì Postgres accountId
@@ -166,13 +193,37 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
 
       socket.on('incomingGroupMediaCall', (payload: { conversationId: string; initiatorUserId: string }) => {
         if (!payload?.conversationId || payload.initiatorUserId === chatMongoId) return;
+        if (isCallActiveRef.current || incomingCallRequestRef.current) return;
+        const matchedConversation = conversationsRef.current.find(
+          (item) => item.id === payload.conversationId,
+        );
         setIncomingCallRequest({
           conversationId: payload.conversationId,
           initiatorUserId: payload.initiatorUserId,
+          isPrivate: matchedConversation?.type === 'private',
         });
         setActiveConversationId(payload.conversationId);
         setActiveView('chat');
       });
+
+      const handleCallEnded = ({
+        conversationId,
+      }: {
+        conversationId: string;
+        endedByUserId?: string;
+        reason?: string;
+      }) => {
+        if (!callConversationIdRef.current || callConversationIdRef.current !== conversationId) {
+          return;
+        }
+        setIsGroupCallActive(false);
+        setCallConversationId(null);
+        setCallInitiatorUserId(null);
+        setCallIsPrivate(false);
+      };
+
+      socket.on('callEnded', handleCallEnded);
+      socket.on('videoCallEnded', handleCallEnded);
     };
 
     setupSocket();
@@ -182,6 +233,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
         socket.off('newMessage');
         socket.off('messageRevoked');
         socket.off('incomingGroupMediaCall');
+        socket.off('callEnded');
+        socket.off('videoCallEnded');
         socket.disconnect();
       }
     };
@@ -515,6 +568,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
     if (!activeConversation || activeConversation.id.startsWith('draft_')) return;
     setCallConversationId(activeConversation.id);
     setCallInitiatorUserId(chatMongoId || currentUserId);
+    setCallIsPrivate(true);
+    setIncomingCallRequest(null);
     setIsGroupCallActive(true);
   }, [activeConversation, chatMongoId, currentUserId]);
 
@@ -526,6 +581,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
     if (!activeConversationId) return;
     setCallConversationId(activeConversationId);
     setCallInitiatorUserId(chatMongoId || currentUserId);
+    setCallIsPrivate(false);
+    setIncomingCallRequest(null);
     setIsGroupCallActive(true);
   }, [activeConversationId, chatMongoId, currentUserId]);
 
@@ -533,23 +590,42 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
     if (!incomingCallRequest) return;
     setCallConversationId(incomingCallRequest.conversationId);
     setCallInitiatorUserId(incomingCallRequest.initiatorUserId);
+    setCallIsPrivate(Boolean(incomingCallRequest.isPrivate));
     setIncomingCallRequest(null);
     setIsGroupCallActive(true);
   }, [incomingCallRequest]);
 
   const handleDeclineIncomingCall = useCallback(() => {
-    if (!incomingCallRequest || !socketRef.current) {
+    if (!incomingCallRequest) {
       setIncomingCallRequest(null);
       return;
     }
-    socketRef.current.emit('callEnded', {
-      conversationId: incomingCallRequest.conversationId,
-      endedByUserId: chatMongoId,
-      reason: 'declined',
-    });
-    socketRef.current.emit('leaveMediaRoom', incomingCallRequest.conversationId);
+
+    const socket = socketRef.current;
+    const conversationId = incomingCallRequest.conversationId;
+    const activeType =
+      activeConversation?.id === conversationId ? activeConversation.type : undefined;
+    const conversationType = incomingCallRequest.isPrivate
+      ? 'private'
+      : activeType ?? conversations.find((item) => item.id === conversationId)?.type ?? 'class';
+
+    if (socket) {
+      if (conversationType === 'private') {
+        socket.emit('joinMediaRoom', { conversationId }, () => {
+          socket.emit('leaveMediaRoom', conversationId);
+        });
+      } else {
+        socket.emit('leaveMediaRoom', conversationId);
+      }
+    }
+
     setIncomingCallRequest(null);
-  }, [chatMongoId, incomingCallRequest]);
+  }, [activeConversation, conversations, incomingCallRequest]);
+
+  const handleRequestLeaveCall = useCallback(() => {
+    if (!isGroupCallActive) return;
+    setLeaveSignal((prev) => prev + 1);
+  }, [isGroupCallActive]);
 
   return (
     <View style={styles.container}>
@@ -595,11 +671,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
         visible={isGroupCallActive}
         animationType="slide"
         statusBarTranslucent
-        onRequestClose={() => {
-          setIsGroupCallActive(false);
-          setCallConversationId(null);
-          setCallInitiatorUserId(null);
-        }}
+        onRequestClose={handleRequestLeaveCall}
       >
         {callConversationId && (
           <GroupCallScreen
@@ -607,12 +679,14 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
             currentUserId={chatMongoId}
             socket={socketRef.current}
             participantNames={participantNames}
-            conversationType={callConversationType}
+            conversationType={callIsPrivate ? 'private' : callConversationType}
             initiatorUserId={callInitiatorUserId}
+            leaveSignal={leaveSignal}
             onLeave={() => {
               setIsGroupCallActive(false);
               setCallConversationId(null);
               setCallInitiatorUserId(null);
+              setCallIsPrivate(false);
             }}
           />
         )}

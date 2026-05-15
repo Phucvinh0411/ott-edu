@@ -47,6 +47,8 @@ interface GroupCallScreenProps {
   participantNames?: Record<string, string>;
   conversationType?: "private" | "class";
   initiatorUserId?: string | null;
+  /** Signal from parent to force leaving the call */
+  leaveSignal?: number;
   /** Callback khi người dùng nhấn nút "Rời phòng" */
   onLeave?: () => void;
 }
@@ -190,6 +192,7 @@ export function GroupCallScreen({
   participantNames = {},
   conversationType = "class",
   initiatorUserId = null,
+  leaveSignal = 0,
   onLeave,
 }: GroupCallScreenProps) {
   const screenWidth = useMemo(() => Dimensions.get("window").width, []);
@@ -218,6 +221,7 @@ export function GroupCallScreen({
 
   const [hasJoined, setHasJoined] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
+  const isLeavingRef = useRef(false);
 
   // Tự động join khi component mount
   useEffect(() => {
@@ -227,10 +231,29 @@ export function GroupCallScreen({
     }
   }, [hasJoined, joinRoom, socket]);
 
-  const handleLeave = useCallback(() => {
+  const executeLeave = useCallback(() => {
+    if (isLeavingRef.current) return;
+    isLeavingRef.current = true;
     leaveRoom();
     onLeave?.();
   }, [leaveRoom, onLeave]);
+
+  const handleLeave = useCallback(() => {
+    executeLeave();
+  }, [executeLeave]);
+
+  useEffect(() => {
+    if (!leaveSignal) return;
+    executeLeave();
+  }, [leaveSignal, executeLeave]);
+
+  useEffect(() => {
+    if (!hasJoined) return;
+    if (callStatus !== "idle") return;
+    if (isLeavingRef.current) return;
+    isLeavingRef.current = true;
+    onLeave?.();
+  }, [callStatus, hasJoined, onLeave]);
 
   const getDisplayName = useCallback(
     (userId: string) => {
