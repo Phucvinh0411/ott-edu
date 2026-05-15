@@ -209,7 +209,7 @@ export default function TeamFilesTab({ teamId: routeTeamId }: TeamFilesTabProps)
     if (data.action === 'uploaded' || data.action === 'deleted') {
       await fetchFiles();
     }
-  }, [fetchFiles]);
+  });
 
   const filteredFiles = useMemo(() => {
     return files.filter((file) => {
