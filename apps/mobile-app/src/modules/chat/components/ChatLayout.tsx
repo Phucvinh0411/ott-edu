@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, Modal } from 'react-native';
 import { io, Socket } from 'socket.io-client';
 import { Sidebar } from './Sidebar';
 import { ChatWindow } from './ChatWindow';
@@ -76,16 +76,16 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
     };
   }, [conversations, chatMongoId, activeConversationId]);
 
+  const [typingUsers, setTypingUsers] = useState<Record<string, Record<string, string>>>({}); // conversationId -> { userId -> userName }
+
   const socketRef = useRef<Socket | null>(null);
   const activeConversationIdRef = useRef<string | null>(null);
-
 
   useEffect(() => {
     activeConversationIdRef.current = activeConversationId;
   }, [activeConversationId]);
 
   useEffect(() => {
-    // Chỉ connect socket khi đã có chatMongoId (MongoDB _id) thay vì Postgres accountId
     if (!chatMongoId) return;
 
     let socket: Socket | null = null;
@@ -132,7 +132,39 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
         });
       });
 
-      // Update sidebar khi có tin nhắn bị thu hồi
+      const handleTypingStart = (data: { conversationId: string; userId: string; userName: string }) => {
+        if (data.userId === chatMongoId) return;
+        setTypingUsers((prev) => ({
+          ...prev,
+          [data.conversationId]: {
+            ...(prev[data.conversationId] || {}),
+            [data.userId]: data.userName || 'Người dùng',
+          },
+        }));
+      };
+
+      const handleTypingStop = (data: { conversationId: string; userId: string }) => {
+        setTypingUsers((prev) => {
+          if (!prev[data.conversationId] || !prev[data.conversationId][data.userId]) return prev;
+          const nextConvTyping = { ...prev[data.conversationId] };
+          delete nextConvTyping[data.userId];
+          return {
+            ...prev,
+            [data.conversationId]: nextConvTyping,
+          };
+        });
+      };
+
+      socket.on('userTyping', handleTypingStart);
+      socket.on('typing', handleTypingStart);
+      socket.on('user_typing', handleTypingStart);
+      socket.on('user-typing', handleTypingStart);
+
+      socket.on('userStopTyping', handleTypingStop);
+      socket.on('stopTyping', handleTypingStop);
+      socket.on('user_stop_typing', handleTypingStop);
+      socket.on('user-stop-typing', handleTypingStop);
+
       socket.on('messageRevoked', (data: { messageId: string; revokeType?: string; isRevoked?: boolean }) => {
         setConversations((prev) =>
           prev.map((c) => {
@@ -163,10 +195,28 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
       if (socket) {
         socket.off('newMessage');
         socket.off('messageRevoked');
+        socket.off('userTyping');
+        socket.off('userStopTyping');
         socket.disconnect();
       }
     };
   }, [chatMongoId]);
+
+  const handleTyping = useCallback((isTyping: boolean) => {
+    if (!socketRef.current || !activeConversationIdRef.current || !currentUser) return;
+    if (isTyping) {
+      socketRef.current.emit('typing', {
+        conversationId: activeConversationIdRef.current,
+        userId: currentUser.id,
+        userName: currentUser.name,
+      });
+    } else {
+      socketRef.current.emit('stopTyping', {
+        conversationId: activeConversationIdRef.current,
+        userId: currentUser.id,
+      });
+    }
+  }, [currentUser]);
 
   const loadConversations = useCallback(async () => {
     if (!currentUserId) return;
@@ -176,7 +226,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
       // Fetch /me từ chat-service để lấy MongoDB ObjectId thực của user
       const { chatApiClient } = await import('../axiosClient');
       try {
-        const { data: meRes } = await chatApiClient.get<{ data: { _id: string } }>('/me');
+        const { data: meRes } = await chatApiClient.get<{ data: { _id: string } }>('me');
         if (meRes?.data?._id) {
           setChatMongoId(meRes.data._id);
         }
@@ -472,22 +522,27 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
 
   return (
     <View style={styles.container}>
-      {activeView === 'sidebar' ? (
-        <Sidebar
-          currentMode={currentMode}
-          onModeChange={setCurrentMode}
-          searchQuery={searchQuery}
-          onSearchQueryChange={setSearchQuery}
-          conversations={conversations}
-          suggestedUsers={suggestedUsers}
-          currentUser={currentUser}
-          activeConversationId={activeConversationId}
-          onSelectConversation={handleSelectConversation}
-          onStartPrivateChat={handleStartPrivateChat}
-          isLoading={isLoadingConversations}
-          error={error}
-        />
-      ) : (
+      <Sidebar
+        currentMode={currentMode}
+        onModeChange={setCurrentMode}
+        searchQuery={searchQuery}
+        onSearchQueryChange={setSearchQuery}
+        conversations={conversations}
+        suggestedUsers={suggestedUsers}
+        currentUser={currentUser}
+        activeConversationId={activeConversationId}
+        onSelectConversation={handleSelectConversation}
+        onStartPrivateChat={handleStartPrivateChat}
+        isLoading={isLoadingConversations}
+        error={error}
+      />
+
+      <Modal
+        visible={activeView === 'chat'}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={handleBackToSidebar}
+      >
         <ChatWindow
           conversation={activeConversation}
           messages={messages}
@@ -500,8 +555,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
           onForwardMessage={setForwardMessageTarget}
           onOpenProfile={handleOpenProfile}
           onOpenGroupManage={handleOpenGroupManage}
+          typingUsers={typingUsers[activeConversation?.id || ''] || {}}
+          onTyping={handleTyping}
         />
-      )}
+      </Modal>
 
       {forwardMessageTarget && (
         <ForwardMessageModal
