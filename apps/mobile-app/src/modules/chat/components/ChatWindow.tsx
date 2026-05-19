@@ -394,7 +394,7 @@ const styles = StyleSheet.create({
   messagesList: { flex: 1 },
   loadingCenter: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   listContent: { paddingHorizontal: 4, paddingVertical: 12 },
-  listEmpty: { alignItems: 'center', paddingTop: 100, paddingHorizontal: 40, transform: [{ scaleY: -1 }] },
+  listEmpty: { alignItems: 'center', paddingTop: 100, paddingHorizontal: 40 },
   emptyStateIconWrap: {
     width: 64, height: 64, borderRadius: 32,
     backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
@@ -423,6 +423,7 @@ const styles = StyleSheet.create({
     width: 72, height: 72, borderRadius: 36,
     backgroundColor: '#EFF6FF',
     alignItems: 'center', justifyContent: 'center', marginBottom: 14,
+  },
   typingText: {
     fontSize: 13,
     color: '#4F46E5', // Indigo/Blue matching the image
