@@ -1,14 +1,14 @@
 'use client';
 
 import React from 'react';
-import { useFieldArray, UseFormRegister, Control, FieldErrors, useWatch, useFormContext } from 'react-hook-form';
+import { useFieldArray, UseFormRegister, Control, FieldErrors, useWatch, UseFormSetValue } from 'react-hook-form';
 import { CreateAssignmentFormData } from '@/shared/types/assignment';
 
 interface QuizQuestionBuilderProps {
   control: Control<CreateAssignmentFormData>;
   register: UseFormRegister<CreateAssignmentFormData>;
   errors: FieldErrors<CreateAssignmentFormData>;
-  setValue?: (name: any, value: any) => void;
+  setValue?: UseFormSetValue<CreateAssignmentFormData>;
   onValidationChange?: (isValid: boolean) => void;
 }
 
@@ -107,7 +107,7 @@ interface QuestionCardProps {
   register: UseFormRegister<CreateAssignmentFormData>;
   errors: FieldErrors<CreateAssignmentFormData>;
   control: Control<CreateAssignmentFormData>;
-  setValue?: (name: any, value: any) => void;
+  setValue?: UseFormSetValue<CreateAssignmentFormData>;
   onRemove: () => void;
 }
 

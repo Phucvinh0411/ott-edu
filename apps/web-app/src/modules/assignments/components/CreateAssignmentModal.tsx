@@ -71,7 +71,15 @@ export default function CreateAssignmentModal({
       // Convert datetime-local string to ISO 8601 UTC format for backend
       const dueDateISO = formData.dueDate ? localDateTimeToISO8601UTC(formData.dueDate) : null;
       
-      const payload: any = {
+      const payload: {
+        title: string;
+        instructions?: string;
+        maxScore: number;
+        dueDate: string | null;
+        type: 'QUIZ' | 'ESSAY';
+        teamIds: number[];
+        timeLimit?: number;
+      } = {
         title: formData.title,
         instructions: formData.instructions || undefined,
         maxScore: formData.maxScore,

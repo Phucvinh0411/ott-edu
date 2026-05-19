@@ -73,7 +73,7 @@ export const useAssignments = (teamId: number, role: 'STUDENT' | 'TEACHER') => {
       }
     } catch (err: unknown) {
       // Don't set error if request was aborted
-      if ((err as any).name === 'AbortError') {
+      if (err instanceof Error && err.name === 'AbortError') {
         return;
       }
 

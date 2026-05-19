@@ -114,40 +114,49 @@ export const ChatInfoSidebar: React.FC<ChatInfoSidebarProps> = ({
       // Transform API messages to UI types - BULLETPROOF with fallbacks
       try {
         // Check if API already returns UI items or raw messages
-        let mediaItems = mediaRawData ?? [];
-        let fileItems = filesRawData ?? [];
-        let linkItems = linksRawData ?? [];
+        let mediaItemsUI: MediaItemUI[] = [];
+        let fileItemsUI: FileItemUI[] = [];
+        let linkItemsUI: LinkItemUI[] = [];
         
         // For media: check if already extracted
-        if (mediaItems.length > 0 && !mediaItems[0].attachments && !mediaItems[0].content && mediaItems[0].url) {
-          console.log('[ChatInfoSidebar] Media API returns UI items directly');
-          // Already extracted, use directly
-        } else {
-          console.log('[ChatInfoSidebar] Media API returns messages, extracting...');
-          mediaItems = extractMediaItems(mediaItems);
+        if (mediaRawData && mediaRawData.length > 0) {
+          const first = mediaRawData[0] as unknown as Record<string, unknown>;
+          if (!first.attachments && !first.content && first.url) {
+            console.log('[ChatInfoSidebar] Media API returns UI items directly');
+            mediaItemsUI = mediaRawData as unknown as MediaItemUI[];
+          } else {
+            console.log('[ChatInfoSidebar] Media API returns messages, extracting...');
+            mediaItemsUI = extractMediaItems(mediaRawData);
+          }
         }
         
         // For files: check if already extracted
-        if (fileItems.length > 0 && !fileItems[0].attachments && !fileItems[0].content && fileItems[0].url) {
-          console.log('[ChatInfoSidebar] Files API returns UI items directly');
-          // Already extracted, use directly
-        } else {
-          console.log('[ChatInfoSidebar] Files API returns messages, extracting...');
-          fileItems = extractFileItems(fileItems);
+        if (filesRawData && filesRawData.length > 0) {
+          const first = filesRawData[0] as unknown as Record<string, unknown>;
+          if (!first.attachments && !first.content && first.url) {
+            console.log('[ChatInfoSidebar] Files API returns UI items directly');
+            fileItemsUI = filesRawData as unknown as FileItemUI[];
+          } else {
+            console.log('[ChatInfoSidebar] Files API returns messages, extracting...');
+            fileItemsUI = extractFileItems(filesRawData);
+          }
         }
         
         // For links: check if already extracted
-        if (linkItems.length > 0 && linkItems[0].url && linkItems[0].messageId && !linkItems[0].content) {
-          console.log('[ChatInfoSidebar] Links API returns UI items directly');
-          // Already extracted, use directly
-        } else {
-          console.log('[ChatInfoSidebar] Links API returns messages, extracting...');
-          linkItems = extractLinkItems(linkItems);
+        if (linksRawData && linksRawData.length > 0) {
+          const first = linksRawData[0] as unknown as Record<string, unknown>;
+          if (first.url && first.messageId && !first.content) {
+            console.log('[ChatInfoSidebar] Links API returns UI items directly');
+            linkItemsUI = linksRawData as unknown as LinkItemUI[];
+          } else {
+            console.log('[ChatInfoSidebar] Links API returns messages, extracting...');
+            linkItemsUI = extractLinkItems(linksRawData);
+          }
         }
         
-        const extractedMedia = mediaItems;
-        const extractedFiles = fileItems;
-        const extractedLinks = linkItems;
+        const extractedMedia = mediaItemsUI;
+        const extractedFiles = fileItemsUI;
+        const extractedLinks = linkItemsUI;
         
         // Populate sender names from conversation participants
         const participants = (infoData as ApiConversation | null)?.participants ?? [];

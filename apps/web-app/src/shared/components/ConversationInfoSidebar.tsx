@@ -20,9 +20,7 @@ import {
   Link as LinkIcon,
   Lock,
   Trash2,
-  Eye,
 } from "lucide-react";
-import { chatApiClient } from "@/services/api";
 import AddTeamMemberModal from "@/modules/teams/AddTeamMemberModal";
 import {
   extractMediaItems,
@@ -36,7 +34,6 @@ import {
   fetchFileItems as fetchFileItemsApi,
   fetchLinkItems as fetchLinkItemsApi,
 } from "@/modules/chat/chatApi";
-import type { ApiMessage } from "@/modules/chat/types";
 import type {
   MediaItemUI,
   FileItemUI,
@@ -168,7 +165,7 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
   const [mediaItems, setMediaItems] = useState<MediaItemUI[]>([]);
   const [fileItems, setFileItems] = useState<FileItemUI[]>([]);
   const [linkItems, setLinkItems] = useState<LinkItemUI[]>([]);
-  const [commonGroups, setCommonGroups] = useState<
+  const [commonGroups] = useState<
     Array<{ _id: string; name: string; participantCount: number }>
   >([]);
   const [loading, setLoading] = useState(true);
@@ -249,19 +246,22 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
   const fetchMediaItems = useCallback(async () => {
     try {
       console.log("[fetchMediaItems] Starting...");
-      const apiData: any = await fetchMediaItemsApi(conversationId, 20);
+      const apiData = await fetchMediaItemsApi(conversationId, 20);
       console.log("[fetchMediaItems] API returned:", apiData);
       
       // Check if API already returns UI items or raw messages
-      let items = apiData;
-      if (apiData && apiData.length > 0 && !apiData[0].attachments && !apiData[0].content) {
-        // API already returns UI items (has url, fileName, messageId directly)
-        console.log("[fetchMediaItems] API returns UI items directly, skipping extraction");
-        items = apiData as MediaItemUI[];
-      } else {
-        // API returns raw messages, need to extract
-        console.log("[fetchMediaItems] API returns messages, extracting...");
-        items = extractMediaItems(apiData);
+      let items: MediaItemUI[] = [];
+      if (apiData && apiData.length > 0) {
+        const first = apiData[0] as unknown as Record<string, unknown>;
+        if (!first.attachments && !first.content && first.url) {
+          // API already returns UI items (has url, fileName, messageId directly)
+          console.log("[fetchMediaItems] API returns UI items directly, skipping extraction");
+          items = apiData as unknown as MediaItemUI[];
+        } else {
+          // API returns raw messages, need to extract
+          console.log("[fetchMediaItems] API returns messages, extracting...");
+          items = extractMediaItems(apiData);
+        }
       }
       
       console.log("[fetchMediaItems] Extracted items:", items);
@@ -278,24 +278,27 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
       console.debug("[ConversationInfoSidebar] fetchMediaItems skipped (API unavailable):", error.message);
       setMediaItems([]);
     }
-  }, [conversationId, conversationInfo?.participants]);
+  }, [conversationId, conversationInfo]);
 
   const fetchFileItems = useCallback(async () => {
     try {
       console.log("[fetchFileItems] Starting...");
-      const apiData: any = await fetchFileItemsApi(conversationId, 20);
+      const apiData = await fetchFileItemsApi(conversationId, 20);
       console.log("[fetchFileItems] API returned:", apiData);
       
       // Check if API already returns UI items or raw messages
-      let items = apiData;
-      if (apiData && apiData.length > 0 && !apiData[0].attachments && !apiData[0].content) {
-        // API already returns UI items (has url, fileName, messageId directly)
-        console.log("[fetchFileItems] API returns UI items directly, skipping extraction");
-        items = apiData as FileItemUI[];
-      } else {
-        // API returns raw messages, need to extract
-        console.log("[fetchFileItems] API returns messages, extracting...");
-        items = extractFileItems(apiData);
+      let items: FileItemUI[] = [];
+      if (apiData && apiData.length > 0) {
+        const first = apiData[0] as unknown as Record<string, unknown>;
+        if (!first.attachments && !first.content && first.url) {
+          // API already returns UI items (has url, fileName, messageId directly)
+          console.log("[fetchFileItems] API returns UI items directly, skipping extraction");
+          items = apiData as unknown as FileItemUI[];
+        } else {
+          // API returns raw messages, need to extract
+          console.log("[fetchFileItems] API returns messages, extracting...");
+          items = extractFileItems(apiData);
+        }
       }
       
       console.log("[fetchFileItems] Extracted items:", items);
@@ -312,24 +315,27 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
       console.debug("[ConversationInfoSidebar] fetchFileItems skipped (API unavailable):", error.message);
       setFileItems([]);
     }
-  }, [conversationId, conversationInfo?.participants]);
+  }, [conversationId, conversationInfo]);
 
   const fetchLinkItems = useCallback(async () => {
     try {
       console.log("[fetchLinkItems] Starting...");
-      const apiData: any = await fetchLinkItemsApi(conversationId, 20);
+      const apiData = await fetchLinkItemsApi(conversationId, 20);
       console.log("[fetchLinkItems] API returned:", apiData);
       
       // Check if API already returns UI items or raw messages
-      let items = apiData;
-      if (apiData && apiData.length > 0 && apiData[0].url && apiData[0].messageId && !apiData[0].content) {
-        // API already returns UI items (has url, title, messageId directly)
-        console.log("[fetchLinkItems] API returns UI items directly, skipping extraction");
-        items = apiData as LinkItemUI[];
-      } else {
-        // API returns raw messages, need to extract
-        console.log("[fetchLinkItems] API returns messages, extracting...");
-        items = extractLinkItems(apiData);
+      let items: LinkItemUI[] = [];
+      if (apiData && apiData.length > 0) {
+        const first = apiData[0] as unknown as Record<string, unknown>;
+        if (first.url && first.messageId && !first.content) {
+          // API already returns UI items (has url, title, messageId directly)
+          console.log("[fetchLinkItems] API returns UI items directly, skipping extraction");
+          items = apiData as unknown as LinkItemUI[];
+        } else {
+          // API returns raw messages, need to extract
+          console.log("[fetchLinkItems] API returns messages, extracting...");
+          items = extractLinkItems(apiData);
+        }
       }
       
       console.log("[fetchLinkItems] Extracted items:", items);
@@ -346,7 +352,7 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
       console.debug("[ConversationInfoSidebar] fetchLinkItems skipped (API unavailable):", error.message);
       setLinkItems([]);
     }
-  }, [conversationId, conversationInfo?.participants]);
+  }, [conversationId, conversationInfo]);
 
   // const fetchCommonGroups = useCallback(async () => {
   //   try {
@@ -441,6 +447,10 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
     isOpen,
     conversationId,
     refreshSignal,
+    fetchConversationInfo,
+    fetchFileItems,
+    fetchLinkItems,
+    fetchMediaItems,
   ]);
 
   // ===================== RENDER =====================
