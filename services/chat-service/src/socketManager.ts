@@ -67,6 +67,8 @@ type CreateWebRtcTransportPayload = {
   direction: "send" | "recv";
 };
 
+type MediaCallKind = "audio" | "video";
+
 type ConnectTransportPayload = {
   conversationId: string;
   transportId: string;
@@ -1316,7 +1318,7 @@ class SocketManager {
       // For group calls: broadcast incoming call event when joining media room
       socket.on(
         "startGroupMediaCall",
-        async (data: { conversationId: string }) => {
+        async (data: { conversationId: string; callType?: MediaCallKind }) => {
           if (!userId) {
             socket.emit("videoCallError", {
               code: "UNAUTHORIZED",
@@ -1349,6 +1351,7 @@ class SocketManager {
               conversationId,
               initiatorUserId: userId,
               initiatedAt: new Date().toISOString(),
+              callType: data?.callType || "video",
             });
 
             socket.emit("groupMediaCallStarted", {

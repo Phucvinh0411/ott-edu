@@ -7,6 +7,7 @@ import {
   CallHistoryItem,
   Conversation,
   IncomingVideoCall,
+  MediaCallKind,
   Message,
   Reaction,
   User,
@@ -51,6 +52,8 @@ interface ChatWindowProps {
   socket?: Socket | null;
   canStartVideoCall?: boolean;
   onStartVideoCall?: () => void;
+  canStartAudioCall?: boolean;
+  onStartAudioCall?: () => void;
   callStatus?: VideoCallStatus;
   localStream?: MediaStream | null;
   remoteStream?: MediaStream | null;
@@ -91,6 +94,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   socket,
   canStartVideoCall = false,
   onStartVideoCall,
+  canStartAudioCall = false,
+  onStartAudioCall,
   callStatus = "idle" as VideoCallStatus,
   localStream = null,
   remoteStream = null,
@@ -314,20 +319,25 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   }, [socket, conversation]);
 
   const callStatusLabel = React.useMemo(() => {
+    const currentCallType: MediaCallKind = activeCall?.callType || incomingCall?.callType || "video";
+    const callTypeLabel = currentCallType === "audio" ? "am thanh" : "video";
+
     switch (callStatus) {
       case "calling":
-        return "Dang goi... cho doi phuong chap nhan";
+        return `Dang goi ${callTypeLabel}... cho doi phuong chap nhan`;
       case "receiving":
-        return "Ban co cuoc goi den";
+        return `Ban co cuoc goi ${callTypeLabel} den`;
       case "connected":
-        return "Da ket noi video";
+        return `Da ket noi ${callTypeLabel}`;
       default:
         return "San sang";
     }
-  }, [callStatus]);
+  }, [activeCall, callStatus, incomingCall]);
 
   const incomingCallerName =
     incomingCaller?.name || incomingCall?.fromUserId || "Nguoi dung";
+  const incomingCallTypeLabel = incomingCall?.callType === "audio" ? "am thanh" : "video";
+  const activeCallTypeLabel = activeCall?.callType === "audio" ? "am thanh" : "video";
   const showFullScreenCall =
     callStatus !== "idle" ||
     Boolean(localStream) ||
@@ -366,7 +376,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               </div>
               <div className="min-w-0">
                 <p className="truncate text-xs uppercase tracking-widest text-slate-400">
-                  Cuoc goi video
+                  Cuoc goi {incomingCallTypeLabel === "am thanh" ? "am thanh" : activeCallTypeLabel}
                 </p>
                 <h2 className="truncate text-base font-semibold leading-tight text-white sm:text-lg">
                   {callTitle}
@@ -417,7 +427,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   Cuoc goi den
                 </p>
                 <p className="mt-2 text-lg font-semibold text-white">
-                  {incomingCallerName} dang goi video cho ban
+                  {incomingCallerName} dang goi {incomingCallTypeLabel} cho ban
                 </p>
                 <div className="mt-6 flex items-center justify-center gap-3">
                   <button
@@ -696,7 +706,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         {incomingCall && callStatus === ("receiving" as VideoCallStatus) && (
           <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-3 text-sm text-emerald-900">
             <p className="font-semibold">
-              {incomingCallerName} dang goi video cho ban
+              {incomingCallerName} dang goi {incomingCallTypeLabel} cho ban
             </p>
             <div className="mt-2 flex items-center gap-2">
               <button
