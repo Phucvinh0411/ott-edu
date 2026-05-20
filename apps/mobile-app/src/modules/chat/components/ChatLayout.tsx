@@ -773,7 +773,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
           error={error}
         />
       ) : (
-<>
+        <>
           <Modal
             visible={activeView === 'chat'}
             animationType="slide"
@@ -843,6 +843,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
                   <Pressable style={[styles.incomingBtn, styles.acceptBtn]} onPress={handleAcceptIncomingCall}>
                     <Text style={styles.incomingBtnText}>Chấp nhận</Text>
                   </Pressable>
+                </View>
+              </View>
             </View>
           </Modal>
 
