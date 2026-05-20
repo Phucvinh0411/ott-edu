@@ -265,6 +265,7 @@ export default function useWebRTCMediasoup({
   const pendingProducersRef = useRef<Array<{ producerId: string; kind: "audio" | "video"; userId: string }>>([]);
   const currentConversationIdRef = useRef<string | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
   const requestedCallTypeRef = useRef<MediaCallKind>("video");
 
   const clearCallError = useCallback(() => {
@@ -310,6 +311,11 @@ export default function useWebRTCMediasoup({
     }
 
     const stream = await requestUserMediaWithDesktopPreference(callType);
+    if (callType === "audio") {
+      cameraStreamRef.current = null;
+    } else {
+      cameraStreamRef.current = stream;
+    }
     setLocalStream(stream);
     setIsMicrophoneEnabled(stream.getAudioTracks().some((track) => track.enabled));
     setIsCameraEnabled(stream.getVideoTracks().some((track) => track.enabled));
@@ -321,6 +327,7 @@ export default function useWebRTCMediasoup({
       setCallError(null);
       stopMediaStream(localStreamRef.current);
       localStreamRef.current = null;
+      cameraStreamRef.current = null;
       const stream = await ensureLocalStream(requestedCallTypeRef.current);
       setLocalStream(stream);
     } catch (error) {
@@ -373,10 +380,12 @@ export default function useWebRTCMediasoup({
         socket?.emit("closeProducer", { conversationId: currentConversationIdRef.current, producerId: existingScreenProducer.id });
         producersRef.current.delete("screen");
         // Restore camera preview if available
-        const previewStream = localStreamRef.current;
+        const previewStream = cameraStreamRef.current || localStreamRef.current;
         if (previewStream) {
           setLocalStream(previewStream);
+          localStreamRef.current = previewStream;
         }
+        setIsScreenSharing(false);
         return;
       }
 
@@ -394,9 +403,13 @@ export default function useWebRTCMediasoup({
 
       producersRef.current.set("screen", screenProducer);
 
+      if (localStreamRef.current && localStreamRef.current !== screenStream) {
+        cameraStreamRef.current = localStreamRef.current;
+      }
+
       // Replace local preview with screen preview
       const preview = new MediaStream();
-      const audioTrack = localStreamRef.current?.getAudioTracks()[0] || null;
+      const audioTrack = (cameraStreamRef.current || localStreamRef.current)?.getAudioTracks()[0] || null;
       if (audioTrack) preview.addTrack(audioTrack);
       preview.addTrack(screenTrack);
       setLocalStream(preview);
@@ -412,7 +425,7 @@ export default function useWebRTCMediasoup({
         producersRef.current.delete("screen");
         setIsScreenSharing(false);
         // restore camera
-        const previewStream = localStreamRef.current;
+        const previewStream = cameraStreamRef.current || localStreamRef.current;
         if (previewStream) setLocalStream(previewStream);
       };
     } catch (error) {
@@ -822,6 +835,7 @@ export default function useWebRTCMediasoup({
       consumedProducerIdsRef.current.clear();
       deviceLoadPromiseRef.current = null;
       deviceRef.current = null;
+      cameraStreamRef.current = null;
     },
     [socket],
   );
