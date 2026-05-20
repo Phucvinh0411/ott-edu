@@ -778,8 +778,12 @@ export default function useWebRTCMediasoup({
 
   const endCall = useCallback(
     (_reason?: string) => {
+      console.log("[useWebRTCMediasoup] endCall called for conversation:", currentConversationIdRef.current, "socket:", !!socket, "producers:", [...producersRef.current.keys()]);
       if (currentConversationIdRef.current) {
         socket?.emit("leaveMediaRoom", currentConversationIdRef.current);
+        console.log("[useWebRTCMediasoup] emitted leaveMediaRoom for", currentConversationIdRef.current);
+      } else {
+        console.warn("[useWebRTCMediasoup] endCall: no currentConversationIdRef set");
       }
 
       // Close producers

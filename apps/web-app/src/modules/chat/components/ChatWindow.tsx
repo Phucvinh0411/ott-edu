@@ -170,7 +170,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         conversationId: item.conversationId,
         senderId: item.callerId,
         content: `[call_log] ${JSON.stringify({
-          callType: "video",
+          callType: item.callType || "video",
           status: item.status,
           durationSec: item.durationSec,
           label: `Cuoc goi ${formatCallStatus(item).toLowerCase()}`,
@@ -453,9 +453,42 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             /* ── 1-1 Layout: remote fills entire area, local is PiP ── */
             <div className="relative min-h-0 flex-1">
               {/* Remote — full bleed */}
-              {remoteStreamsList.length > 0 ? (
+                {remoteStreamsList.length > 0 ? (
                 (() => {
                   const [userId, stream] = remoteStreamsList[0]!;
+
+                  const hasVideo = stream.getVideoTracks().length > 0;
+                  const hasAudio = stream.getAudioTracks().length > 0;
+
+                  // If stream has no video but has audio (audio-only call), render an <audio>
+                  if (!hasVideo && hasAudio) {
+                    return (
+                      <audio
+                        key={userId}
+                        ref={(el) => {
+                          if (!el) return;
+                          if (el.srcObject !== stream) el.srcObject = stream;
+                          // Start muted to satisfy autoplay policies, then unmute after play
+                          el.muted = true;
+                          el.play()
+                            .then(() => {
+                              try {
+                                el.muted = false;
+                              } catch (e) {
+                                // ignore
+                              }
+                            })
+                            .catch((err) => {
+                              console.warn("[ChatWindow] Remote audio play failed:", err);
+                            });
+                        }}
+                        autoPlay
+                        controls={false}
+                        className="absolute inset-0 h-full w-full object-cover"
+                      />
+                    );
+                  }
+
                   return (
                     <video
                       key={userId}
@@ -464,18 +497,20 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                         remoteVideoRefs.current.set(userId, el);
                         if (el.srcObject !== stream) el.srcObject = stream;
                         el.muted = true;
+                        const tryPlay = () => {
+                          if (!el) return;
+                          el.play()
+                            .then(() => {
+                              el.muted = false;
+                            })
+                            .catch(() => {});
+                        };
                         el.play()
                           .then(() => {
                             el.muted = false;
                           })
                           .catch(() => {
-                            el.oncanplay = () => {
-                              el.play()
-                                .then(() => {
-                                  el.muted = false;
-                                })
-                                .catch(() => {});
-                            };
+                            el.oncanplay = tryPlay;
                           });
                       }}
                       autoPlay
@@ -1073,7 +1108,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
             {/* 👇 CÁC NÚT GỌI ĐIỆN, INFO GIỮ NGUYÊN 👇 */}
             <button
               type="button"
-              className="rounded-full p-2 transition-colors hover:bg-slate-100 hover:text-blue-500"
+              onClick={onStartAudioCall}
+              disabled={!canStartAudioCall}
+              className="rounded-full p-2 transition-colors hover:bg-slate-100 hover:text-blue-500 disabled:cursor-not-allowed disabled:opacity-40"
+              title={
+                canStartAudioCall
+                  ? "Gọi thoại 1-1"
+                  : "Chỉ hỗ trợ gọi trong đoạn chat private"
+              }
             >
               <Phone size={20} />
             </button>
