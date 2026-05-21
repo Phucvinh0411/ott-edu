@@ -697,32 +697,33 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
           error={error}
         />
       ) : (
-      <Modal
-        visible={activeView === 'chat'}
-        animationType="slide"
-        presentationStyle="fullScreen"
-        onRequestClose={handleBackToSidebar}
-      >
-        <ChatWindow
-          conversation={activeConversation}
-          messages={messages}
-          currentUser={currentUser}
-          currentUserId={chatMongoId || currentUser?.id || currentUserId}
-          privatePeer={privatePeer}
-          onSendMessage={handleSendMessage}
-          isLoadingMessages={isLoadingMessages}
-          isSending={isSending}
-          onBack={handleBackToSidebar}
-          socket={socketRef.current}
-          onForwardMessage={setForwardMessageTarget}
-          onOpenProfile={handleOpenProfile}
-          onOpenGroupManage={handleOpenGroupManage}
-          onStartVoiceCall={isPrivateConversation ? handleStartVoiceCall : undefined}
-          onStartVideoCall={isPrivateConversation ? handleStartVideoCall : undefined}
-          onStartGroupCall={!isPrivateConversation ? handleStartGroupCall : undefined}
-          isCallActive={isGroupCallActive}
-        />
-      </Modal>
+        <Modal
+          visible={activeView === 'chat'}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={handleBackToSidebar}
+        >
+          <ChatWindow
+            conversation={activeConversation}
+            messages={messages}
+            currentUser={currentUser}
+            currentUserId={chatMongoId || currentUser?.id || currentUserId}
+            privatePeer={privatePeer}
+            onSendMessage={handleSendMessage}
+            isLoadingMessages={isLoadingMessages}
+            isSending={isSending}
+            onBack={handleBackToSidebar}
+            socket={socketRef.current}
+            onForwardMessage={setForwardMessageTarget}
+            onOpenProfile={handleOpenProfile}
+            onOpenGroupManage={handleOpenGroupManage}
+            onStartVoiceCall={isPrivateConversation ? handleStartVoiceCall : undefined}
+            onStartVideoCall={isPrivateConversation ? handleStartVideoCall : undefined}
+            onStartGroupCall={!isPrivateConversation ? handleStartGroupCall : undefined}
+            isCallActive={isGroupCallActive}
+          />
+        </Modal>
+      )}
 
       <Modal
         visible={isGroupCallActive}

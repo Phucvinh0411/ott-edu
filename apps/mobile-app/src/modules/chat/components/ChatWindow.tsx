@@ -423,6 +423,7 @@ const styles = StyleSheet.create({
     width: 72, height: 72, borderRadius: 36,
     backgroundColor: '#EFF6FF',
     alignItems: 'center', justifyContent: 'center', marginBottom: 14,
+  },
   typingText: {
     fontSize: 13,
     color: '#4F46E5', // Indigo/Blue matching the image
