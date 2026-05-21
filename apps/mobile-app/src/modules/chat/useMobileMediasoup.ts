@@ -121,9 +121,11 @@ let webRtcGlobalsRegistered = false;
 
 // ─── Lazy loaders ─────────────────────────────────────────────────────────────
 function loadWebRtcModule() {
-  if (!ENABLE_WEBRTC) return null;
   try {
-    return require("react-native-webrtc") as typeof import("react-native-webrtc");
+    const module = require("react-native-webrtc") as typeof import("react-native-webrtc");
+    if (ENABLE_WEBRTC) return module;
+    // Allow dev builds to proceed if native module exists, even when env flag is missing.
+    return module;
   } catch {
     return null;
   }
@@ -231,6 +233,8 @@ export function useMobileMediasoup({
   const peerConsumerInfoRef = useRef<
     Map<string, { audioConsumerId?: string; videoConsumerId?: string }>
   >(new Map());
+  const pendingProducersRef = useRef<NewProducerPayload[]>([]);
+  const consumedProducerIdsRef = useRef<Set<string>>(new Set());
 
   const conversationIdRef = useRef<string | null>(null);
   const isMountedRef = useRef(true);
@@ -316,6 +320,7 @@ export function useMobileMediasoup({
       const device = deviceRef.current;
 
       if (!socket || !roomId || !recvTransport || !device) return;
+      if (consumedProducerIdsRef.current.has(producerId)) return;
 
       try {
         const ack = await socketEmitAck<{
@@ -345,6 +350,8 @@ export function useMobileMediasoup({
           rtpParameters: rtpParameters as RtpParameters,
         });
 
+        consumedProducerIdsRef.current.add(producerId);
+
         // Ghi nhận mapping
         consumerUserMapRef.current.set(consumerId, userId);
         producerConsumerMapRef.current.set(producerId, consumerId);
@@ -373,6 +380,17 @@ export function useMobileMediasoup({
     [syncRemoteParticipants, upsertRemoteTrack],
   );
 
+  const flushPendingProducers = useCallback(async () => {
+    if (!recvTransportRef.current || !deviceRef.current) return;
+    const pending = pendingProducersRef.current.splice(0);
+    for (const producer of pending) {
+      if (requestedCallTypeRef.current === "audio" && producer.kind === "video") {
+        continue;
+      }
+      await consumeProducer(producer.producerId, producer.kind, producer.userId);
+    }
+  }, [consumeProducer]);
+
   // ─── Cleanup toàn bộ SFU state ───────────────────────────────────────────────
   const cleanup = useCallback(
     (options?: { preserveError?: boolean }) => {
@@ -397,6 +415,8 @@ export function useMobileMediasoup({
       producerConsumerMapRef.current.clear();
       peerConsumerInfoRef.current.clear();
       localProducerIdsRef.current.clear();
+      pendingProducersRef.current = [];
+      consumedProducerIdsRef.current.clear();
 
       if (!isMountedRef.current) return;
       setLocalStream(null);
@@ -464,11 +484,18 @@ export function useMobileMediasoup({
       setCallStatus("joining");
 
       // ── 1. Lấy local media ─────────────────────────────────────────────────
-        const stream = await webRtcModule.mediaDevices.getUserMedia(
-          callType === "audio"
-            ? { audio: true, video: false }
-            : { audio: true, video: { facingMode: "user" } },
-        );
+      const stream = await webRtcModule.mediaDevices.getUserMedia(
+        callType === "audio"
+          ? { audio: true, video: false }
+          : { audio: true, video: { facingMode: "user" } },
+      );
+
+      const effectiveCallType: MediaCallKind =
+        (stream as unknown as import("react-native-webrtc").MediaStream)
+          .getVideoTracks().length > 0
+          ? callType
+          : "audio";
+      requestedCallTypeRef.current = effectiveCallType;
 
       localStreamRef.current = stream as unknown as MediaStream;
       if (isMountedRef.current) {
@@ -568,7 +595,7 @@ export function useMobileMediasoup({
       // ── 6. Produce local audio & video ────────────────────────────────────
       const audioTrack = (stream as unknown as import("react-native-webrtc").MediaStream)
         .getAudioTracks()[0];
-      const videoTrack = callType === "audio"
+      const videoTrack = effectiveCallType === "audio"
         ? undefined
         : (stream as unknown as import("react-native-webrtc").MediaStream).getVideoTracks()[0];
 
@@ -595,6 +622,8 @@ export function useMobileMediasoup({
       }
 
       // ── 7. Consume existing producers ─────────────────────────────────────
+      await flushPendingProducers();
+
       for (const ep of existingProducers) {
         if (requestedCallTypeRef.current === "audio" && ep.kind === "video") {
           continue;
@@ -602,7 +631,7 @@ export function useMobileMediasoup({
         await consumeProducer(ep.producerId, ep.kind, ep.userId);
       }
 
-      socket.emit("startGroupMediaCall", { conversationId: roomId, callType });
+      socket.emit("startGroupMediaCall", { conversationId: roomId, callType: effectiveCallType });
 
       if (isMountedRef.current) {
         setCallStatus(existingProducers.length > 0 ? "connected" : "ready");
@@ -615,7 +644,7 @@ export function useMobileMediasoup({
       }
       cleanup({ preserveError: true });
     }
-  }, [callStatus, callType, cleanup, consumeProducer, currentUserId]);
+  }, [callStatus, callType, cleanup, consumeProducer, currentUserId, flushPendingProducers]);
 
   // ─── Xử lý media controls ────────────────────────────────────────────────────
   const toggleMicrophone = useCallback(() => {
@@ -659,6 +688,10 @@ export function useMobileMediasoup({
       // Không consume producer của chính mình
       if (payload.userId === currentUserId) return;
       if (requestedCallTypeRef.current === "audio" && payload.kind === "video") return;
+      if (!deviceRef.current?.loaded || !recvTransportRef.current) {
+        pendingProducersRef.current.push(payload);
+        return;
+      }
       await consumeProducer(payload.producerId, payload.kind, payload.userId);
       if (isMountedRef.current) {
         setCallStatus("connected");
