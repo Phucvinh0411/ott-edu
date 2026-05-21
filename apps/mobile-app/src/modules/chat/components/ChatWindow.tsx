@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Socket } from 'socket.io-client';
 import { Conversation, Message, User, Attachment, Reaction } from '../types';
+import type { MediaCallKind } from '../types';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
 import { ChatInfoSidebar } from './ChatInfoSidebar';
@@ -29,7 +30,7 @@ interface ChatWindowProps {
   /** Gọi video 1-1 */
   onStartVideoCall?: () => void;
   /** Gọi nhóm SFU (group/class chat) */
-  onStartGroupCall?: () => void;
+  onStartGroupCall?: (callType?: MediaCallKind) => void;
   /** Trạng thái cuộc gọi đang diễn ra (để disable nút khi đang gọi) */
   isCallActive?: boolean;
   typingUsers?: Record<string, string>;
@@ -257,21 +258,38 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
         {/* Nút gọi nhóm – luôn hiện trong group/class chat */}
         {!isPrivate && (
-          <TouchableOpacity
-            style={[
-              styles.callBtn,
-              isCallActive && styles.callBtnActive,
-              !onStartGroupCall && styles.callBtnDimmed,
-            ]}
-            onPress={onStartGroupCall}
-            disabled={isCallActive || !onStartGroupCall}
-          >
-            <Ionicons
-              name={isCallActive ? 'videocam' : 'videocam-outline'}
-              size={22}
-              color={isCallActive ? '#22C55E' : '#3B82F6'}
-            />
-          </TouchableOpacity>
+          <>
+            <TouchableOpacity
+              style={[
+                styles.callBtn,
+                isCallActive && styles.callBtnActive,
+                !onStartGroupCall && styles.callBtnDimmed,
+              ]}
+              onPress={() => onStartGroupCall?.('audio')}
+              disabled={isCallActive || !onStartGroupCall}
+            >
+              <Ionicons
+                name={isCallActive ? 'call' : 'call-outline'}
+                size={20}
+                color={isCallActive ? '#22C55E' : '#3B82F6'}
+              />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.callBtn,
+                isCallActive && styles.callBtnActive,
+                !onStartGroupCall && styles.callBtnDimmed,
+              ]}
+              onPress={() => onStartGroupCall?.('video')}
+              disabled={isCallActive || !onStartGroupCall}
+            >
+              <Ionicons
+                name={isCallActive ? 'videocam' : 'videocam-outline'}
+                size={22}
+                color={isCallActive ? '#22C55E' : '#3B82F6'}
+              />
+            </TouchableOpacity>
+          </>
         )}
 
         <TouchableOpacity
@@ -423,6 +441,7 @@ const styles = StyleSheet.create({
     width: 72, height: 72, borderRadius: 36,
     backgroundColor: '#EFF6FF',
     alignItems: 'center', justifyContent: 'center', marginBottom: 14,
+  },
   typingText: {
     fontSize: 13,
     color: '#4F46E5', // Indigo/Blue matching the image

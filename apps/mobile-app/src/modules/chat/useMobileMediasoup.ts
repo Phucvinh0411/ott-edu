@@ -23,6 +23,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Socket } from "socket.io-client";
 import type { MediaStream } from "react-native-webrtc";
+import type { MediaCallKind } from "./types";
 
 // ─── Mediasoup-client types (loaded lazily) ───────────────────────────────────
 type Device = import("mediasoup-client").Device;
@@ -85,6 +86,8 @@ export type UseMobileMediasoupParams = {
   currentUserId: string;
   /** conversationId sẽ được dùng làm roomId cho SFU */
   conversationId: string | null;
+  /** audio hoặc video */
+  callType?: MediaCallKind;
   /** private call: chỉ cần 1 peer rời là kết thúc cuộc gọi */
   endOnPeerLeave?: boolean;
   /** group call: initiator tắt cuộc gọi sẽ kết thúc cho toàn bộ room */
@@ -187,6 +190,7 @@ export function useMobileMediasoup({
   socket,
   currentUserId,
   conversationId,
+  callType = "video",
   endOnPeerLeave = false,
   isCallInitiator = false,
 }: UseMobileMediasoupParams): UseMobileMediasoupReturn {
@@ -231,6 +235,7 @@ export function useMobileMediasoup({
   const conversationIdRef = useRef<string | null>(null);
   const isMountedRef = useRef(true);
   const isCleaningUpRef = useRef(false);
+  const requestedCallTypeRef = useRef<MediaCallKind>(callType);
 
   // ── sync refs ──
   useEffect(() => {
@@ -240,6 +245,10 @@ export function useMobileMediasoup({
   useEffect(() => {
     conversationIdRef.current = conversationId;
   }, [conversationId]);
+
+  useEffect(() => {
+    requestedCallTypeRef.current = callType;
+  }, [callType]);
 
   useEffect(() => {
     isMountedRef.current = true;
@@ -455,10 +464,11 @@ export function useMobileMediasoup({
       setCallStatus("joining");
 
       // ── 1. Lấy local media ─────────────────────────────────────────────────
-      const stream = await webRtcModule.mediaDevices.getUserMedia({
-        audio: true,
-        video: { facingMode: "user" },
-      });
+        const stream = await webRtcModule.mediaDevices.getUserMedia(
+          callType === "audio"
+            ? { audio: true, video: false }
+            : { audio: true, video: { facingMode: "user" } },
+        );
 
       localStreamRef.current = stream as unknown as MediaStream;
       if (isMountedRef.current) {
@@ -558,8 +568,9 @@ export function useMobileMediasoup({
       // ── 6. Produce local audio & video ────────────────────────────────────
       const audioTrack = (stream as unknown as import("react-native-webrtc").MediaStream)
         .getAudioTracks()[0];
-      const videoTrack = (stream as unknown as import("react-native-webrtc").MediaStream)
-        .getVideoTracks()[0];
+      const videoTrack = callType === "audio"
+        ? undefined
+        : (stream as unknown as import("react-native-webrtc").MediaStream).getVideoTracks()[0];
 
       if (audioTrack) {
         const audioProducer = await sendTransport.produce({
@@ -585,10 +596,13 @@ export function useMobileMediasoup({
 
       // ── 7. Consume existing producers ─────────────────────────────────────
       for (const ep of existingProducers) {
+        if (requestedCallTypeRef.current === "audio" && ep.kind === "video") {
+          continue;
+        }
         await consumeProducer(ep.producerId, ep.kind, ep.userId);
       }
 
-      socket.emit("startGroupMediaCall", { conversationId: roomId });
+      socket.emit("startGroupMediaCall", { conversationId: roomId, callType });
 
       if (isMountedRef.current) {
         setCallStatus(existingProducers.length > 0 ? "connected" : "ready");
@@ -601,7 +615,7 @@ export function useMobileMediasoup({
       }
       cleanup({ preserveError: true });
     }
-  }, [callStatus, cleanup, consumeProducer, currentUserId]);
+  }, [callStatus, callType, cleanup, consumeProducer, currentUserId]);
 
   // ─── Xử lý media controls ────────────────────────────────────────────────────
   const toggleMicrophone = useCallback(() => {
@@ -644,6 +658,7 @@ export function useMobileMediasoup({
     const handleNewProducer = async (payload: NewProducerPayload) => {
       // Không consume producer của chính mình
       if (payload.userId === currentUserId) return;
+      if (requestedCallTypeRef.current === "audio" && payload.kind === "video") return;
       await consumeProducer(payload.producerId, payload.kind, payload.userId);
       if (isMountedRef.current) {
         setCallStatus("connected");
