@@ -932,7 +932,11 @@ export default function useWebRTCMediasoup({
 
   const declineIncomingCall = useCallback(() => {
     if (!incomingCall) return;
-    socket?.emit("leaveMediaRoom", incomingCall.conversationId);
+    if (incomingCall.isPrivate) {
+      socket?.emit("declineMediaCall", { conversationId: incomingCall.conversationId });
+    } else {
+      socket?.emit("leaveMediaRoom", incomingCall.conversationId);
+    }
     setIncomingCall(null);
     setCallStatus("idle");
   }, [incomingCall, socket]);
@@ -987,6 +991,7 @@ export default function useWebRTCMediasoup({
       initiatorUserId: string;
       initiatedAt: string;
       callType?: MediaCallKind;
+      isPrivate?: boolean;
     }) => {
       if (!conversationId || initiatorUserId === currentUserId) return;
 
@@ -998,6 +1003,7 @@ export default function useWebRTCMediasoup({
           toUserId: currentUserId,
           initiatedAt,
           callType: callType || "video",
+          isPrivate: Boolean(isPrivate),
         });
         setCallStatus("receiving");
       }
