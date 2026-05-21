@@ -8,10 +8,11 @@ import { ForwardMessageModal } from './ForwardMessageModal';
 import { ChatUserProfileModal } from './ChatUserProfileModal';
 import { ChatGroupManageModal } from './ChatGroupManageModal';
 import { GroupCallScreen } from './GroupCallScreen';
-import { ChatMode, Conversation, Message, User } from '../types';
+import { CallHistoryItem, ChatMode, Conversation, Message, User } from '../types';
 import type { MediaCallKind } from '../types';
 import {
   fetchConversations,
+  fetchCallHistory,
   fetchMessages,
   sendMessage,
   mapApiMessageToMessage,
@@ -42,6 +43,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isLoadingConversations, setIsLoadingConversations] = useState(false);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
+  const [callHistory, setCallHistory] = useState<CallHistoryItem[]>([]);
+  const [isLoadingCallHistory, setIsLoadingCallHistory] = useState(false);
+  const [callHistoryPage, setCallHistoryPage] = useState(1);
+  const [callHistoryTotalPages, setCallHistoryTotalPages] = useState(1);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [forwardMessageTarget, setForwardMessageTarget] = useState<Message | null>(null);
@@ -376,18 +381,28 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
   useEffect(() => {
     if (!activeConversationId) {
       setMessages([]);
+      setCallHistory([]);
       return;
     }
 
     const load = async () => {
       setIsLoadingMessages(true);
+      setIsLoadingCallHistory(true);
       try {
-        const data = await fetchMessages(activeConversationId);
-        setMessages(data);
+        const [messagesData, callHistoryData] = await Promise.all([
+          fetchMessages(activeConversationId),
+          fetchCallHistory({ conversationId: activeConversationId, limit: 50, page: 1 }),
+        ]);
+        setMessages(messagesData);
+        setCallHistory(callHistoryData.items || []);
+        setCallHistoryPage(callHistoryData.pagination?.page || 1);
+        setCallHistoryTotalPages(callHistoryData.pagination?.totalPages || 1);
       } catch (err) {
         console.error('[ChatLayout] fetch messages error:', err);
+        setCallHistory([]);
       } finally {
         setIsLoadingMessages(false);
+        setIsLoadingCallHistory(false);
       }
     };
 
@@ -764,6 +779,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
               onSendMessage={handleSendMessage}
               isLoadingMessages={isLoadingMessages}
               isSending={isSending}
+              callHistory={callHistory}
+              isLoadingCallHistory={isLoadingCallHistory}
+              callHistoryPage={callHistoryPage}
+              callHistoryTotalPages={callHistoryTotalPages}
               onBack={handleBackToSidebar}
               socket={socketRef.current}
               onForwardMessage={setForwardMessageTarget}

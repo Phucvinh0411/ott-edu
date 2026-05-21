@@ -68,9 +68,11 @@ type RTCViewProps = {
 };
 
 function loadRTCView(): React.ComponentType<RTCViewProps> | null {
-  if (!ENABLE_WEBRTC) return null;
   try {
-    return require("react-native-webrtc").RTCView as React.ComponentType<RTCViewProps>;
+    const module = require("react-native-webrtc") as typeof import("react-native-webrtc");
+    if (ENABLE_WEBRTC) return module.RTCView as React.ComponentType<RTCViewProps>;
+    // Allow dev builds to proceed if native module exists, even when env flag is missing.
+    return module.RTCView as React.ComponentType<RTCViewProps>;
   } catch {
     return null;
   }
@@ -278,6 +280,7 @@ export function GroupCallScreen({
   );
 
   const isJoining = callStatus === "joining";
+  const isPrivateCall = conversationType === "private";
   const isOneToOne = remoteParticipants.length <= 1;
 
   return (
@@ -289,8 +292,8 @@ export function GroupCallScreen({
         <View>
           <Text style={styles.headerTitle}>
             {callType === "audio"
-              ? (isOneToOne ? "Cuộc gọi thoại" : "Cuộc gọi thoại nhóm")
-              : (isOneToOne ? "Cuộc gọi video" : "Cuộc gọi nhóm")}
+              ? (isPrivateCall ? "Cuộc gọi thoại" : (isOneToOne ? "Cuộc gọi thoại" : "Cuộc gọi thoại nhóm"))
+              : (isPrivateCall ? "Cuộc gọi video" : (isOneToOne ? "Cuộc gọi video" : "Cuộc gọi nhóm"))}
           </Text>
           <Text style={styles.headerSubTitle}>
             {remoteParticipants.length + 1} người tham gia

@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Socket } from 'socket.io-client';
-import { Conversation, Message, User, Attachment, Reaction } from '../types';
+import { CallHistoryItem, Conversation, Message, User, Attachment, Reaction } from '../types';
 import type { MediaCallKind } from '../types';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
@@ -20,6 +20,10 @@ interface ChatWindowProps {
   onSendMessage: (text: string, attachments?: Attachment[], replyToId?: string) => Promise<void>;
   isLoadingMessages: boolean;
   isSending: boolean;
+  callHistory?: CallHistoryItem[];
+  isLoadingCallHistory?: boolean;
+  callHistoryPage?: number;
+  callHistoryTotalPages?: number;
   onBack: () => void;
   socket: Socket | null;
   onForwardMessage?: (message: Message) => void;
@@ -46,6 +50,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   onSendMessage,
   isLoadingMessages,
   isSending,
+  callHistory = [],
+  isLoadingCallHistory: _isLoadingCallHistory = false,
   onBack,
   socket,
   onForwardMessage,
@@ -62,6 +68,25 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   const [replyingTo, setReplyingTo] = useState<Message | null>(null);
   const [localMessages, setLocalMessages] = useState<Message[]>(messages);
   const [isSidebarVisible, setIsSidebarVisible] = useState(false);
+  const isLoadingTimeline = isLoadingMessages || _isLoadingCallHistory;
+
+  const formatCallStatus = (item: CallHistoryItem): string => {
+    switch (item.status) {
+      case "connected":
+      case "ended":
+        return "Da goi";
+      case "declined":
+        return "Bi tu choi";
+      case "unavailable":
+        return "Khong lien lac duoc";
+      case "failed":
+        return "Loi ket noi";
+      case "ringing":
+        return "Dang do chuong";
+      default:
+        return item.status;
+    }
+  };
 
   useEffect(() => {
     setLocalMessages(messages);
@@ -168,7 +193,40 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     : (conversation.avatarUrl || `https://i.pravatar.cc/150?img=30`);
   const headerUser = isPrivate ? otherParticipant || null : conversation.participants.find((p) => p.id === conversation.ownerId) || null;
 
-  const invertedMessages = [...localMessages].reverse();
+  const callHistoryMessages = React.useMemo(
+    () =>
+      callHistory.map((item) => ({
+        id: item._id,
+        conversationId: item.conversationId,
+        senderId: item.callerId,
+        content: `[call_log] ${JSON.stringify({
+          callType: item.callType || "video",
+          status: item.status,
+          durationSec: item.durationSec,
+          label: `Cuoc goi ${formatCallStatus(item).toLowerCase()}`,
+        })}`,
+        createdAt: item.startedAt,
+        status: "sent" as const,
+        attachments: [],
+        linkPreview: undefined,
+        replyTo: null,
+        isRevoked: false,
+        revokedFor: [],
+        isForwarded: false,
+        reactions: [],
+      })),
+    [callHistory],
+  );
+
+  const timelineMessages = React.useMemo(() => {
+    const combined = [...localMessages, ...callHistoryMessages];
+    return combined.sort(
+      (left, right) =>
+        new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime(),
+    );
+  }, [callHistoryMessages, localMessages]);
+
+  const invertedMessages = [...timelineMessages].reverse();
 
   const typingNames = Object.values(typingUsers);
   const typingText = typingNames.length > 0
@@ -302,7 +360,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
       {/* Messages */}
       <View style={styles.messagesList}>
-        {isLoadingMessages ? (
+        {isLoadingTimeline ? (
           <View style={styles.loadingCenter}>
             <ActivityIndicator size="large" color="#3b82f6" />
           </View>
@@ -336,6 +394,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     onForward={onForwardMessage}
                     onOpenProfile={onOpenProfile}
                     showAvatar={!isSelf && !isConsecutive}
+                    onStartVoiceCall={onStartVoiceCall}
+                    onStartVideoCall={onStartVideoCall}
                   />
                   {!isConsecutive && <View style={{ height: 6 }} />}
                 </View>

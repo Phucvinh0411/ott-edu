@@ -9,6 +9,23 @@ export type ChatConversationType = ChatMode | "group";
 export type VideoCallStatus = "idle" | "calling" | "receiving" | "connected";
 export type MediaCallKind = "audio" | "video";
 
+export interface CallHistoryItem {
+  _id: string;
+  callId: string;
+  conversationId: string;
+  callerId: string;
+  calleeId: string;
+  callType?: MediaCallKind;
+  status: "ringing" | "connected" | "ended" | "declined" | "unavailable" | "failed";
+  startedAt: string;
+  connectedAt?: string;
+  endedAt?: string;
+  durationSec: number;
+  endReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface User {
   id: string;
   name: string;
