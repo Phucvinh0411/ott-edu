@@ -516,6 +516,23 @@ export default function useWebRTCMediasoup({
           .getTracks()
           .filter((track) => track.id !== consumer.track.id);
 
+        // Restore alternate active track (like video/camera) if screen sharing was closed
+        let alternateTrack: MediaStreamTrack | null = null;
+        consumersRef.current.forEach((c) => {
+          if (c.id !== consumerId && c.track.kind === consumer.track.kind) {
+            const m = consumerMetaRef.current.get(c.id);
+            if (m && m.userId === meta.userId) {
+              alternateTrack = c.track;
+            }
+          }
+        });
+
+        if (alternateTrack) {
+          if (!remainingTracks.some((t) => t.id === alternateTrack!.id)) {
+            remainingTracks.push(alternateTrack);
+          }
+        }
+
         if (remainingTracks.length === 0) {
           next.delete(meta.userId);
           return;

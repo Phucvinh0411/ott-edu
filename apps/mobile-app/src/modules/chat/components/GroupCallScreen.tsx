@@ -89,12 +89,13 @@ interface VideoTileProps {
   style?: object;
   isMuted?: boolean;
   isAudioOnly?: boolean;
+  isCameraEnabled?: boolean;
 }
 
-function VideoTile({ streamURL, label, isMirror, style, isMuted, isAudioOnly }: VideoTileProps) {
+function VideoTile({ streamURL, label, isMirror, style, isMuted, isAudioOnly, isCameraEnabled = true }: VideoTileProps) {
   return (
     <View style={[styles.tile, style]}>
-      {streamURL && RTCView && !isAudioOnly ? (
+      {streamURL && RTCView && !isAudioOnly && isCameraEnabled ? (
         <RTCView
           streamURL={streamURL}
           objectFit="cover"
@@ -341,6 +342,7 @@ export function GroupCallScreen({
                   key={participant.userId}
                   streamURL={streamURL}
                   label={getDisplayName(participant.userId)}
+                  isCameraEnabled={participant.isCameraEnabled}
                   style={{
                     width: grid.tileWidth,
                     height: grid.tileHeight,
