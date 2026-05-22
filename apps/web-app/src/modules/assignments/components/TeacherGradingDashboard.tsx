@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { submissionApi, assignmentApi } from '@/services/api/assignment.service';
 import { teamApi } from '@/services/api/teamApi';
+import { formatDisplayFileName } from '@/shared/utils/file';
 
 interface TeacherGradingDashboardProps {
   assignmentId: number;
@@ -124,7 +125,7 @@ export default function TeacherGradingDashboard({
         const detail = await assignmentApi.getDetail(assignmentId);
         if (detail && detail.teamIds && detail.teamIds.length > 0) {
           const namesMap: Record<number, string> = {};
-          
+
           await Promise.all(
             detail.teamIds.map(async (teamId) => {
               try {
@@ -142,7 +143,7 @@ export default function TeacherGradingDashboard({
               }
             })
           );
-          
+
           setStudentNamesMap(namesMap);
         }
       } catch (err) {
@@ -282,13 +283,7 @@ export default function TeacherGradingDashboard({
   };
 
   const getFileName = (url?: string) => {
-    if (!url) return 'file';
-    try {
-      const withoutQuery = url.split('?')[0];
-      return decodeURIComponent(withoutQuery.split('/').pop() || 'file');
-    } catch {
-      return 'file';
-    }
+    return formatDisplayFileName(url, 'file');
   };
 
   if (loading) {
@@ -357,21 +352,19 @@ export default function TeacherGradingDashboard({
           <div className="flex border-b border-slate-200">
             <button
               onClick={() => handleTabChange('PENDING')}
-              className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors ${
-                activeTab === 'PENDING'
+              className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors ${activeTab === 'PENDING'
                   ? 'bg-white text-blue-700 border-b-2 border-blue-600'
                   : 'bg-slate-50 text-slate-500 hover:text-slate-700'
-              }`}
+                }`}
             >
               Chưa chấm ({pendingSubmissions.length})
             </button>
             <button
               onClick={() => handleTabChange('GRADED')}
-              className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors ${
-                activeTab === 'GRADED'
+              className={`flex-1 px-4 py-3 text-sm font-semibold transition-colors ${activeTab === 'GRADED'
                   ? 'bg-white text-green-700 border-b-2 border-green-600'
                   : 'bg-slate-50 text-slate-500 hover:text-slate-700'
-              }`}
+                }`}
             >
               Đã chấm ({gradedSubmissions.length})
             </button>
@@ -390,11 +383,10 @@ export default function TeacherGradingDashboard({
                 <button
                   key={submission.submissionId}
                   onClick={() => handleSelectSubmission(submission)}
-                  className={`w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-blue-50 transition-colors ${
-                    selectedSubmission?.submissionId === submission.submissionId
+                  className={`w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-blue-50 transition-colors ${selectedSubmission?.submissionId === submission.submissionId
                       ? 'bg-blue-50 border-l-4 border-l-blue-600'
                       : ''
-                  }`}
+                    }`}
                 >
                   {/* FIX Issue 3: resolveStudentName checks every known field */}
                   <p className="font-medium text-slate-900 text-sm truncate">
@@ -529,11 +521,10 @@ export default function TeacherGradingDashboard({
                   <button
                     onClick={handleSubmitGrade}
                     disabled={submitting || score === ''}
-                    className={`w-full py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${
-                      submitting || score === ''
+                    className={`w-full py-3 rounded-lg font-semibold transition-colors flex items-center justify-center gap-2 ${submitting || score === ''
                         ? 'bg-slate-100 text-slate-400 cursor-not-allowed'
                         : 'bg-blue-600 text-white hover:bg-blue-700'
-                    }`}
+                      }`}
                   >
                     {submitting ? (
                       <>
@@ -554,7 +545,7 @@ export default function TeacherGradingDashboard({
 
               {activeTab === 'GRADED' && (
                 <div className="rounded-lg bg-green-50 border border-green-200 p-4 text-sm">
-                  <p className="font-semibold text-green-800 mb-1">✅ Bài đã được chấm điểm</p>
+                  <p className="font-semibold text-green-800 mb-1">Bài đã được chấm điểm</p>
                   <p className="text-slate-600">
                     Xem lại thông tin bài nộp ở trên. Để chỉnh sửa điểm, vui lòng liên hệ quản trị viên.
                   </p>

@@ -45,6 +45,7 @@ export type AssignmentDetail = {
   questions: Question[];
   timeLimit?: number;
   maxAttempts?: number;
+  materialUrls?: string[];
 };
 
 export type Assignment = {

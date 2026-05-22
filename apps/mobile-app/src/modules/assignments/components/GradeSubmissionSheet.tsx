@@ -18,6 +18,7 @@ import { Ionicons } from "@expo/vector-icons";
 
 import { assignmentApi } from "../assignment.api";
 import type { SubmissionGradingItem } from "../assignment.types";
+import { formatDisplayFileName } from "../../../shared/utils/file";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -177,7 +178,7 @@ export default function GradeSubmissionSheet({
               <View style={styles.fileInfo}>
                 <Text style={styles.fileLabel}>File bài nộp</Text>
                 <Text style={styles.fileUrl} numberOfLines={1}>
-                  {submission.fileUrl}
+                  {formatDisplayFileName(submission.fileUrl || undefined, "File bài nộp")}
                 </Text>
               </View>
               <Ionicons name="open-outline" size={16} color="#94a3b8" />

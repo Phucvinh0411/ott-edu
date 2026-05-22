@@ -18,6 +18,7 @@ import { format, isValid } from "date-fns";
 import { assignmentApi } from "../assignment.api";
 import {
   QuestionType,
+  AssignmentType,
   type AssignmentDetail,
   type AnswerOption,
   type Question,
@@ -322,20 +323,7 @@ export default function TakeQuizScreen({
   const doSubmit = async (submissionId: number) => {
     setPhase({ kind: "submitting" });
     try {
-      const questionAnswers = Object.entries(answersRef.current).map(([qId, optIds]) => ({
-        questionId: Number(qId),
-        selectedOptionIds: optIds,
-      }));
-
-      await assignmentApi.submitAssignment(detail.id, { questionAnswers });
-
-      // Try to get the submission detail for score (quiz auto-grade)
-      let submissionDetail: ViewSubmission | null = null;
-      try {
-        submissionDetail = await assignmentApi.getCurrentSubmission(detail.id);
-      } catch {
-        // ignore if not available yet
-      }
+      const resultDto = await assignmentApi.submitQuiz(submissionId);
 
       const answeredCount = Object.values(answersRef.current).filter((ids) => ids.length > 0).length;
       setPhase({
@@ -344,8 +332,8 @@ export default function TakeQuizScreen({
           submittedAt: new Date().toISOString(),
           answeredCount,
           totalCount: questions.length,
-          score: submissionDetail?.grade?.score,
-          maxScore: detail.maxScore,
+          score: resultDto.score,
+          maxScore: resultDto.maxScore,
         },
       });
     } catch (err) {
@@ -479,7 +467,7 @@ export default function TakeQuizScreen({
               </View>
             </View>
 
-            {!hasScore && (
+            {detail.type !== AssignmentType.QUIZ && !hasScore && (
               <>
                 <View style={styles.statDivider} />
                 <View style={[styles.statRow, styles.statRowNote]}>
