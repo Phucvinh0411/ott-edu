@@ -10,6 +10,7 @@ import type { MediaCallKind } from '../types';
 import { MessageBubble } from './MessageBubble';
 import { MessageInput } from './MessageInput';
 import { ChatInfoSidebar } from './ChatInfoSidebar';
+import AddMemberModal from './AddMemberModal';
 
 interface ChatWindowProps {
   conversation: Conversation | null;
@@ -534,7 +535,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   header: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 8,
@@ -603,13 +603,18 @@ const styles = StyleSheet.create({
   callBtnDimmed: {
     opacity: 0.35,
   },
-  messageList: { flex: 1 },
-  emptyMessages: { alignItems: "center", paddingTop: 80, paddingHorizontal: 40 },
-  emptyMsgIcon: {
+  messagesList: { flex: 1 },
+  loadingCenter: { flex: 1, justifyContent: "center", alignItems: "center" },
+  listContent: { paddingVertical: 10, paddingHorizontal: 12 },
+  listEmpty: { alignItems: "center", paddingTop: 80, paddingHorizontal: 40 },
+  emptyStateIconWrap: {
     width: 72, height: 72, borderRadius: 36,
     backgroundColor: '#EFF6FF',
     alignItems: 'center', justifyContent: 'center', marginBottom: 14,
   },
+  emptyStateTitle: { fontSize: 16, fontWeight: '700', color: '#1E293B', marginBottom: 6 },
+  emptyStateSub: { fontSize: 13, color: '#64748B', textAlign: 'center' },
+  typingIndicatorBar: { paddingHorizontal: 16, paddingVertical: 6, backgroundColor: '#F8FAFC' },
   typingText: {
     fontSize: 13,
     color: "#4F46E5",
