@@ -43,6 +43,15 @@ export default function AccountPage() {
     return [user.lastName, user.firstName].filter(Boolean).join(" ") || user.email;
   }, [user]);
 
+  const roleLabel = useMemo(() => {
+    const roles = user?.roles;
+    if (!roles || roles.length === 0) return "Thành viên";
+    if (roles.includes("ROLE_STUDENT") || roles.includes("student")) return "Học viên";
+    if (roles.includes("ROLE_TEACHER") || roles.includes("teacher")) return "Giảng viên";
+    const raw = roles[0] ?? "Thành viên";
+    return raw.replace(/^ROLE_/, "").replace(/_/g, " ");
+  }, [user?.roles]);
+
   const handleEditProfile = () => {
     router.push("/account/edit");
   };
@@ -92,7 +101,7 @@ export default function AccountPage() {
               <h2 className="text-xl font-bold text-slate-950 mt-0.5">{fullName}</h2>
               <p className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                {user?.role === "student" ? "Học viên" : user?.role === "teacher" ? "Giảng viên" : user?.role || "Thành viên"}
+                {roleLabel}
               </p>
             </div>
           </div>

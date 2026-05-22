@@ -43,6 +43,15 @@ export default function ProfileOverviewPage() {
     return [user.lastName, user.firstName].filter(Boolean).join(" ") || user.email;
   }, [user]);
 
+  const roleLabel = useMemo(() => {
+    const roles = user?.roles;
+    if (!roles || roles.length === 0) return "Thành viên";
+    if (roles.includes("ROLE_STUDENT") || roles.includes("student")) return "Học viên";
+    if (roles.includes("ROLE_TEACHER") || roles.includes("teacher")) return "Giảng viên";
+    const raw = roles[0] ?? "Thành viên";
+    return raw.replace(/^ROLE_/, "").replace(/_/g, " ");
+  }, [user?.roles]);
+
   const handleEditProfile = () => {
     router.push("/account/edit");
   };
@@ -190,7 +199,7 @@ export default function ProfileOverviewPage() {
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Vai trò thành viên</p>
                 <p className="text-sm font-semibold text-slate-800">
-                  {user?.role === "student" ? "Học viên" : user?.role === "teacher" ? "Giảng viên" : user?.role || "Thành viên"}
+                  {roleLabel}
                 </p>
               </div>
             </div>
