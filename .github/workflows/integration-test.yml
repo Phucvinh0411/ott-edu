@@ -9,6 +9,8 @@ on:
 jobs:
   integration-test:
     runs-on: ubuntu-latest
+    env:
+      COMPOSE_FILE: docker-compose.yml:docker-compose.ci.yml
 
     steps:
       - name: Checkout code
@@ -30,7 +32,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Start services
-        run: docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d --build
+        run: docker compose up -d --build
 
       - name: Wait for gateway and core readiness
         run: |
@@ -44,7 +46,7 @@ jobs:
             fi
             if [ "$i" -eq 120 ]; then
               echo "Gateway did not become ready in time."
-              docker compose -f docker-compose.yml -f docker-compose.ci.yml logs gateway
+              docker compose logs gateway
               exit 1
             fi
             sleep 2
@@ -62,7 +64,7 @@ jobs:
             fi
             if [ "$i" -eq 150 ]; then
               echo "Core upstream still unavailable after retries."
-              docker compose -f docker-compose.yml -f docker-compose.ci.yml logs core-service gateway
+              docker compose logs core-service gateway
               exit 1
             fi
             sleep 2
