@@ -51,7 +51,7 @@ export default function GradingModal({
 
   useEffect(() => {
     if (isOpen) {
-      fetchPendingSubmissions();
+      void fetchPendingSubmissions();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, assignmentId]);
