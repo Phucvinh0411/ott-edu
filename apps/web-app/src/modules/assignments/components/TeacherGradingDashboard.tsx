@@ -82,7 +82,9 @@ export default function TeacherGradingDashboard({
   }, [assignmentId]);
 
   useEffect(() => {
-    void loadPendingSubmissions();
+    queueMicrotask(() => {
+      void loadPendingSubmissions();
+    });
   }, [loadPendingSubmissions]);
 
   const handleSelectSubmission = (submission: PendingSubmission) => {

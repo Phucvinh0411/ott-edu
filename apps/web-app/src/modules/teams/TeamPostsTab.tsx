@@ -583,6 +583,46 @@ export default function TeamPostsTab({ teamId: routeTeamId }: TeamPostsTabProps)
   const { userEmail, isLoaded, classId: contextClassId } = useAppContext();
   const teamId = routeTeamId?.toString() ?? contextClassId ?? null;
 
+  const loadCommentsForPost = useCallback(async (postId: string) => {
+    try {
+      const comments = await httpService.get<ApiPost[]>(`/interact/comments/post/${postId}`);
+      const currentUser = userEmail || Cookies.get('userEmail') || "";
+
+      const mappedComments = comments.map((c: ApiPost) => {
+        const isMyComment = 
+            String(c.authorId).toLowerCase() === currentUser.toLowerCase() || 
+            String(c.authorName).toLowerCase() === currentUser.toLowerCase();
+
+        const name = c.authorName || c.user?.name || c.author?.name || c.author?.fullName || c.authorId;
+        const avatar = c.authorAvatar || c.user?.avatar || c.user?.avatarUrl || c.author?.avatar || c.author?.avatarUrl || null;
+        const userReact = c.userReaction || c.myReaction || c.reactionType || null;
+
+        return {
+          id: c.id,
+          senderName: name, 
+          senderAvatar: avatar,
+          senderInitials: getInitials(name || ""),
+          isMe: isMyComment,
+          text: c.content,
+          time: formatTime(c.createdAt),
+          rawDate: new Date(c.createdAt || Date.now()).getTime(),
+          attachments: c.attachments?.map((att: ApiAttachment) => ({
+            id: att.id,
+            name: att.fileName,
+            size: formatBytes(att.size),
+            type: att.fileType || 'application/octet-stream',
+            url: att.fileUrl
+          })) || [],
+          reactionCount: c.reactionCount || 0,
+          replyToCommentId: c.replyToCommentId || null, 
+          userReaction: userReact
+        };
+      });
+      
+      setPosts(prevPosts => prevPosts.map(p => p.id === postId ? { ...p, replies: mappedComments, commentCount: mappedComments.length } : p));
+    } catch (error) { console.error("Error loading comments:", error); }
+  }, [userEmail]);
+
   // ✨ SOCKET.IO SETUP - Real-time Posts Updates
   const socket = useSocket();
   useSocketRoomJoin(socket, teamId);
@@ -673,45 +713,7 @@ export default function TeamPostsTab({ teamId: routeTeamId }: TeamPostsTabProps)
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const loadCommentsForPost = useCallback(async (postId: string) => {
-    try {
-      const comments = await httpService.get<ApiPost[]>(`/interact/comments/post/${postId}`);
-      const currentUser = userEmail || Cookies.get('userEmail') || "";
 
-      const mappedComments = comments.map((c: ApiPost) => {
-        const isMyComment = 
-            String(c.authorId).toLowerCase() === currentUser.toLowerCase() || 
-            String(c.authorName).toLowerCase() === currentUser.toLowerCase();
-
-        const name = c.authorName || c.user?.name || c.author?.name || c.author?.fullName || c.authorId;
-        const avatar = c.authorAvatar || c.user?.avatar || c.user?.avatarUrl || c.author?.avatar || c.author?.avatarUrl || null;
-        const userReact = c.userReaction || c.myReaction || c.reactionType || null;
-
-        return {
-          id: c.id,
-          senderName: name, 
-          senderAvatar: avatar,
-          senderInitials: getInitials(name || ""),
-          isMe: isMyComment,
-          text: c.content,
-          time: formatTime(c.createdAt),
-          rawDate: new Date(c.createdAt || Date.now()).getTime(),
-          attachments: c.attachments?.map((att: ApiAttachment) => ({
-            id: att.id,
-            name: att.fileName,
-            size: formatBytes(att.size),
-            type: att.fileType || 'application/octet-stream',
-            url: att.fileUrl
-          })) || [],
-          reactionCount: c.reactionCount || 0,
-          replyToCommentId: c.replyToCommentId || null, 
-          userReaction: userReact
-        };
-      });
-      
-      setPosts(prevPosts => prevPosts.map(p => p.id === postId ? { ...p, replies: mappedComments, commentCount: mappedComments.length } : p));
-    } catch (error) { console.error("Error loading comments:", error); }
-  }, [userEmail]);
 
   const toggleExpandPost = async (postId: string) => {
     if (expandedPostIds.includes(postId)) {

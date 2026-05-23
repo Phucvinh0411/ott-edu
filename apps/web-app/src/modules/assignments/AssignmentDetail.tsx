@@ -101,7 +101,9 @@ export default function AssignmentDetail({
   }, [assignmentId, initializeOrFetchSubmission, isTeacher]);
 
   useEffect(() => {
-    void loadAssignmentDetail();
+    queueMicrotask(() => {
+      void loadAssignmentDetail();
+    });
   }, [loadAssignmentDetail, refreshSubmission]);
 
   // Feature 5: Poll for grade updates (student waiting for teacher grading)
