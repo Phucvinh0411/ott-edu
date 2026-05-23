@@ -56,6 +56,7 @@ export default function GradingModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, assignmentId]);
 
+
   const handleSelectSubmission = (submission: Submission) => {
     setSelectedSubmission(submission);
     setScore('');

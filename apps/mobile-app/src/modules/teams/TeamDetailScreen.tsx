@@ -28,16 +28,19 @@ export default function TeamDetailScreen({ team, onBack }: TeamDetailScreenProps
   });
 
   // Hàm render nội dung tùy theo Tab
+  // Hàm render nội dung tùy theo Tab
   const renderTabContent = () => {
     switch (activeTab) {
-      case 'Posts': return <PostsTab teamTitle={teamState.name} />;
-      case 'Files': return <FilesTab />;
+      case 'Posts': 
+        // TRUYỀN classId DƯỚI DẠNG STRING Ở ĐÂY
+        return <PostsTab teamTitle={teamState.name} classId={String(teamState.id)} />;
+      case 'Files': return <FilesTab classId={String(teamState.id)} />;
       case 'Members': return <MembersTab teamId={teamState.id} />;
       case 'Assignments':
         return <AssignmentsTab teamId={teamState.id} teamTitle={teamState.name} />;
       case 'Grades': 
         return <View style={styles.center}><Text style={styles.emptyText}>Grades will appear here.</Text></View>;
-      default: return <PostsTab teamTitle={teamState.name} />;
+      default: return <PostsTab teamTitle={teamState.name} classId={String(teamState.id)} />;
     }
   };
 
