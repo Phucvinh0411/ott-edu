@@ -616,27 +616,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                   return (
                     <RemoteVideo
                       key={userId}
-                      ref={(el) => {
-                        if (!el) return;
-                        remoteVideoRefs.current.set(userId, el);
-                        if (el.srcObject !== stream) el.srcObject = stream;
-                        el.muted = true;
-                        const tryPlay = () => {
-                          if (!el) return;
-                          el.play()
-                            .then(() => {
-                              el.muted = false;
-                            })
-                            .catch(() => { });
-                        };
-                        el.play()
-                          .then(() => {
-                            el.muted = false;
-                          })
-                          .catch(() => {
-                            el.oncanplay = tryPlay;
-                          });
-                      }}
+                      stream={stream}
                       autoPlay
                       playsInline
                       className="absolute inset-0 h-full w-full object-cover"
@@ -671,26 +651,9 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     className="relative overflow-hidden rounded-2xl bg-slate-800 ring-1 ring-white/10"
                     style={{ aspectRatio: "16/9" }}
                   >
-                    <video
-                      ref={(el) => {
-                        if (!el) return;
-                        remoteVideoRefs.current.set(userId, el);
-                        if (el.srcObject !== stream) el.srcObject = stream;
-                        el.muted = true;
-                        el.play()
-                          .then(() => {
-                            el.muted = false;
-                          })
-                          .catch(() => {
-                            el.oncanplay = () => {
-                              el.play()
-                                .then(() => {
-                                  el.muted = false;
-                                })
-                                .catch(() => { });
-                            };
-                          });
-                      }}
+                    <RemoteVideo
+                      key={userId}
+                      stream={stream}
                       autoPlay
                       playsInline
                       className="h-full w-full object-cover"
