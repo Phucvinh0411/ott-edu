@@ -541,7 +541,7 @@ export default function TeacherGradingDashboard({
                     <div className="space-y-6">
                       {assignment.questions?.map((question, qIdx) => {
                         // Find the student's answer for this question
-                        const studentAnswer = submissionDetail.studentAnswers.find(
+                        const studentAnswer = submissionDetail.studentAnswers?.find(
                           (sa) => sa.questionId === question.id
                         );
                         const selectedOptionIds = studentAnswer?.selectedOptionIds || [];
