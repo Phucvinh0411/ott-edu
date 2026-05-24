@@ -133,9 +133,9 @@ export default function AdminUserManagementPage() {
   };
 
   // Handle Reset password API
-  const handleResetPassword = async () => {
-    if (!selectedUser) return;
-    await resetUserPassword(selectedUser.accountId);
+  const handleResetPassword = async (): Promise<string> => {
+    if (!selectedUser) throw new Error("No user selected");
+    return await resetUserPassword(selectedUser.accountId);
   };
 
   // Trigger password reset dialog

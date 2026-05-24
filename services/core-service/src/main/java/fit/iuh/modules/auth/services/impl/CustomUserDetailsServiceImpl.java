@@ -28,6 +28,7 @@ public class CustomUserDetailsServiceImpl implements CustomUserDetailsService {
                 .username(account.getEmail())
                 .password(account.getPasswordHash())
                 .disabled(account.getStatus() == AccountStatus.APPEAR_OFFLINE)
+                .accountLocked(account.isLocked())
                 .authorities(Set.of(new SimpleGrantedAuthority(account.getRole().name())))
                 .build();
     }

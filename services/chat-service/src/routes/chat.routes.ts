@@ -80,4 +80,8 @@ router.get("/friend-requests", ChatController.getFriendRequests);
 router.post("/friend-requests/send", ChatController.sendFriendRequest);
 router.post("/friend-requests/accept", ChatController.acceptFriendRequest);
 router.post("/friend-requests/reject", ChatController.rejectFriendRequest);
+
+// Thống kê tin nhắn phục vụ admin
+router.get("/admin/stats/messages", ChatController.getMessageStats);
+
 export default router;

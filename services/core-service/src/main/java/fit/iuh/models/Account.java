@@ -32,6 +32,10 @@ public class Account {
     private boolean isEmailVerified;
 
     @Builder.Default
+    @Column(name = "is_locked", nullable = false)
+    private boolean isLocked = false;
+
+    @Builder.Default
     @Column(name = "is_online", nullable = false)
     private boolean isOnline = false;
 
