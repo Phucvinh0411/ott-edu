@@ -23,6 +23,7 @@ import {
   MOCK_TOP_ACTIVE_USERS,
   MOCK_USER_SUMMARY,
 } from '@/modules/admin/constants';
+import { httpService, chatHttpService } from './http.service';
 
 // ---- Dashboard ----
 
@@ -49,39 +50,8 @@ export interface GetUsersParams {
 export async function getUsers(
   params: GetUsersParams,
 ): Promise<PaginatedResponse<AdminUser>> {
-  // TODO: return httpService.get<PaginatedResponse<AdminUser>>('/admin/users', { params });
-  let filtered = [...MOCK_USERS];
-
-  if (params.search) {
-    const keyword = params.search.toLowerCase();
-    filtered = filtered.filter(
-      (u) =>
-        u.username.toLowerCase().includes(keyword) ||
-        u.email.toLowerCase().includes(keyword) ||
-        u.firstName.toLowerCase().includes(keyword) ||
-        u.lastName.toLowerCase().includes(keyword),
-    );
-  }
-
-  if (params.role && params.role !== 'all') {
-    filtered = filtered.filter((u) => u.role === params.role);
-  }
-
-  if (params.status && params.status !== 'all') {
-    filtered = filtered.filter((u) => u.status === params.status);
-  }
-
-  const page = params.page ?? 0;
-  const size = params.size ?? 10;
-  const start = page * size;
-  const content = filtered.slice(start, start + size);
-
-  return Promise.resolve({
-    content,
-    totalElements: filtered.length,
-    totalPages: Math.ceil(filtered.length / size),
-    page,
-    size,
+  return httpService.get<PaginatedResponse<AdminUser>>('/admin/users', {
+    params: params as unknown as Record<string, unknown>,
   });
 }
 
@@ -94,62 +64,38 @@ export interface CreateUserPayload {
 }
 
 export async function createUser(payload: CreateUserPayload): Promise<AdminUser> {
-  // TODO: return httpService.post<AdminUser>('/admin/users', payload);
-  return Promise.resolve({
-    accountId: Date.now(),
-    username: payload.email.split('@')[0],
-    email: payload.email,
-    firstName: payload.firstName,
-    lastName: payload.lastName,
-    role: payload.role,
-    status: 'Active' as const,
-    createdDate: new Date().toLocaleDateString('en-US', {
-      month: 'short',
-      day: '2-digit',
-      year: 'numeric',
-    }),
-  });
+  return httpService.post<AdminUser>('/admin/users', payload);
 }
 
 export async function deleteUser(userId: number): Promise<void> {
-  // TODO: return httpService.delete<void>(`/admin/users/${userId}`);
-  void userId;
-  return Promise.resolve();
+  return httpService.delete<void>(`/admin/users/${userId}`);
 }
 
 export async function lockUser(userId: number): Promise<void> {
-  // TODO: return httpService.patch<void>(`/admin/users/${userId}/lock`);
-  void userId;
-  return Promise.resolve();
+  return httpService.patch<void>(`/admin/users/${userId}/lock`);
 }
 
 export async function unlockUser(userId: number): Promise<void> {
-  // TODO: return httpService.patch<void>(`/admin/users/${userId}/unlock`);
-  void userId;
-  return Promise.resolve();
+  return httpService.patch<void>(`/admin/users/${userId}/unlock`);
 }
 
-export async function resetUserPassword(userId: number): Promise<void> {
-  // TODO: return httpService.post<void>(`/admin/users/${userId}/reset-password`);
-  void userId;
-  return Promise.resolve();
+export async function resetUserPassword(userId: number): Promise<string> {
+  return httpService.post<string>(`/admin/users/${userId}/reset-password`);
 }
 
 // ---- Statistics ----
 
 export async function getMessageStats(): Promise<MessageStatPoint[]> {
-  // TODO: return chatHttpService.get<MessageStatPoint[]>('/admin/stats/messages');
-  return Promise.resolve(MOCK_MESSAGE_STATS);
+  const response = await chatHttpService.get<{ data: MessageStatPoint[] }>('/admin/stats/messages');
+  return response.data;
 }
 
 export async function getUserGrowthStats(): Promise<UserGrowthPoint[]> {
-  // TODO: return httpService.get<UserGrowthPoint[]>('/admin/stats/user-growth');
-  return Promise.resolve(MOCK_USER_GROWTH);
+  return httpService.get<UserGrowthPoint[]>('/admin/stats/user-growth');
 }
 
 export async function getTopActiveUsers(): Promise<TopActiveUser[]> {
-  // TODO: return httpService.get<TopActiveUser[]>('/admin/stats/top-users');
-  return Promise.resolve(MOCK_TOP_ACTIVE_USERS);
+  return httpService.get<TopActiveUser[]>('/admin/stats/top-users');
 }
 
 export async function getUserSummary(): Promise<{
@@ -157,6 +103,5 @@ export async function getUserSummary(): Promise<{
   activeNow: number;
   pendingReview: number;
 }> {
-  // TODO: return httpService.get('/admin/users/summary');
-  return Promise.resolve(MOCK_USER_SUMMARY);
+  return httpService.get('/admin/users/summary');
 }

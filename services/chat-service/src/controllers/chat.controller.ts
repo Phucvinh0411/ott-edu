@@ -7,6 +7,7 @@ import socketManager from "../socketManager.ts";
 import User from "../model/User.ts";
 import FriendRequest from "../model/FriendRequest.ts";
 import Conversation from "../model/Conversation.ts";
+import Message from "../model/Message.ts";
 
 export class ChatController {
   // API: GET /api/calls/history
@@ -812,6 +813,94 @@ static async acceptFriendRequest(req: any, res: any) {
     } catch (error: any) {
       console.error("[ChatController] emitSocketEvent error:", error);
       return res.status(error.statusCode || 500).json({ error: error.message });
+    }
+  }
+
+  // API: GET /api/admin/stats/messages
+  static async getMessageStats(req: Request, res: Response) {
+    try {
+      // Authenticate: Ensure only ROLE_ADMIN has access
+      const rolesHeader = req.headers["x-user-roles"] || "";
+      const roles = typeof rolesHeader === "string" ? rolesHeader.split(",") : [];
+      if (!roles.includes("ROLE_ADMIN")) {
+        return res.status(403).json({ error: "Forbidden", detail: "Bạn không có quyền thực hiện thao tác này." });
+      }
+      // 1. Pre-populate last 30 days
+      const result: Record<string, { date: string; internal: number; external: number }> = {};
+      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+      
+      const formatDate = (d: Date): string => {
+        const day = String(d.getDate()).padStart(2, "0");
+        const month = months[d.getMonth()];
+        return `${day} ${month}`;
+      };
+
+      for (let i = 29; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const dateStr = formatDate(d);
+        result[dateStr] = { date: dateStr, internal: 0, external: 0 };
+      }
+
+      // 2. Query MongoDB messages
+      const stats = await Message.aggregate([
+        {
+          $match: {
+            createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
+          }
+        },
+        {
+          $lookup: {
+            from: "conversations",
+            localField: "conversationId",
+            foreignField: "_id",
+            as: "conversation"
+          }
+        },
+        {
+          $unwind: "$conversation"
+        },
+        {
+          $group: {
+            _id: {
+              date: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+              type: "$conversation.type"
+            },
+            count: { $sum: 1 }
+          }
+        }
+      ]);
+
+      // 3. Process aggregation results
+      for (const item of stats) {
+        const rawDateStr = item._id.date; // e.g. "2026-05-24"
+        const type = item._id.type; // "class" or "private"
+        
+        if (rawDateStr) {
+          const parts = rawDateStr.split("-");
+          if (parts.length === 3) {
+            const day = parts[2];
+            const monthIdx = parseInt(parts[1], 10) - 1;
+            const month = months[monthIdx];
+            if (month) {
+              const formattedDate = `${day} ${month}`; // e.g. "24 May"
+              if (result[formattedDate]) {
+                if (type === "class") {
+                  result[formattedDate].internal += item.count;
+                } else {
+                  result[formattedDate].external += item.count;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      const finalData = Object.values(result);
+      return res.status(200).json({ data: finalData });
+    } catch (error: any) {
+      console.error("[ChatController] getMessageStats error:", error);
+      return res.status(500).json({ error: "Internal server error", detail: error.message });
     }
   }
 }

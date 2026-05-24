@@ -7,7 +7,7 @@ import type { AdminUser } from "@/shared/types/admin";
 interface ResetPasswordModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => Promise<void>;
+  onConfirm: () => Promise<string>;
   user: AdminUser | null;
 }
 
@@ -28,10 +28,8 @@ export default function ResetPasswordModal({
     setIsResetting(true);
     setError(null);
     try {
-      await onConfirm();
-      // Generate a mock temp password for display
-      const randomPass = Math.random().toString(36).slice(-8).toUpperCase() + "@2026";
-      setTempPassword(randomPass);
+      const tempPass = await onConfirm();
+      setTempPassword(tempPass);
     } catch (err) {
       console.error(err);
       setError("Failed to reset password. Please try again.");
