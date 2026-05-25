@@ -14,9 +14,13 @@ import fit.iuh.modules.team.dtos.TeamMemberResponse;
 import fit.iuh.modules.team.dtos.TeamRequest;
 import fit.iuh.modules.team.dtos.TeamResponse;
 import fit.iuh.modules.team.dtos.UpdateTeamStatusRequest;
+import fit.iuh.modules.team.dtos.UpdateTeamMemberRoleRequest;
 import fit.iuh.modules.team.mappers.TeamMapper;
 import fit.iuh.modules.team.repositories.TeamMemberRepository;
 import fit.iuh.modules.team.repositories.TeamRepository;
+import fit.iuh.modules.team.repositories.TeamJoinRequestRepository;
+import fit.iuh.models.TeamJoinRequest;
+import fit.iuh.modules.team.dtos.JoinRequestResponse;
 import fit.iuh.modules.team.services.TeamService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -38,6 +42,7 @@ public class TeamServiceImpl implements TeamService {
     private final TeamMemberRepository teamMemberRepository;
     private final ProfileRepository profileRepository;
     private final AccountRepository accountRepository;
+    private final TeamJoinRequestRepository teamJoinRequestRepository;
     private final TeamMapper teamMapper;
     private final ChatConversationSyncService chatConversationSyncService;
 
@@ -49,6 +54,7 @@ public class TeamServiceImpl implements TeamService {
                 .description(request.getDescription())
                 .joinCode(request.getJoinCode())
                 .isActive(true)
+                .isApprovalRequired(request.getIsApprovalRequired())
                 .createdAt(LocalDateTime.now())
                 .department(Department.builder().id(request.getDepartmentId()).build())
                 .build();
@@ -121,6 +127,7 @@ public class TeamServiceImpl implements TeamService {
         team.setDescription(request.getDescription());
         team.setJoinCode(request.getJoinCode());
         team.setDepartment(Department.builder().id(request.getDepartmentId()).build());
+        team.setApprovalRequired(request.getIsApprovalRequired());
 
         Team updatedTeam = teamRepository.save(team);
         Team syncedTeam = teamRepository.findById(updatedTeam.getId())
@@ -289,6 +296,30 @@ public class TeamServiceImpl implements TeamService {
             throw new RuntimeException("Bạn đã là thành viên của lớp học này rồi.");
         }
 
+        if (team.isApprovalRequired()) {
+            java.util.Optional<TeamJoinRequest> existingRequest = teamJoinRequestRepository.findByTeamIdAndAccountId(team.getId(), account.getId());
+            if (existingRequest.isPresent() && existingRequest.get().getStatus() == TeamJoinRequest.JoinRequestStatus.PENDING) {
+                return TeamResponse.builder().id(-1L).name("PENDING").description("Yêu cầu tham gia của bạn đang chờ phê duyệt.").build();
+            }
+            if (existingRequest.isPresent() && existingRequest.get().getStatus() == TeamJoinRequest.JoinRequestStatus.REJECTED) {
+                TeamJoinRequest req = existingRequest.get();
+                req.setStatus(TeamJoinRequest.JoinRequestStatus.PENDING);
+                req.setRequestedAt(java.time.LocalDateTime.now());
+                teamJoinRequestRepository.save(req);
+                return TeamResponse.builder().id(-1L).name("PENDING").description("Yêu cầu tham gia đã được gửi lại. Vui lòng chờ duyệt.").build();
+            }
+            if (!existingRequest.isPresent()) {
+                TeamJoinRequest req = TeamJoinRequest.builder()
+                        .team(team)
+                        .account(account)
+                        .status(TeamJoinRequest.JoinRequestStatus.PENDING)
+                        .requestedAt(java.time.LocalDateTime.now())
+                        .build();
+                teamJoinRequestRepository.save(req);
+                return TeamResponse.builder().id(-1L).name("PENDING").description("Yêu cầu tham gia đã được gửi. Vui lòng chờ Trưởng nhóm duyệt.").build();
+            }
+        }
+
         TeamMember newMember = TeamMember.builder()
                 .account(account)
                 .team(team)
@@ -303,6 +334,129 @@ public class TeamServiceImpl implements TeamService {
                 teamMemberRepository.findAllByTeamId(team.getId()));
 
         return teamMapper.toResponse(team);
+    }
+
+    @Override
+    @Transactional
+    public void updateMemberRole(Long teamId, Long memberId, UpdateTeamMemberRoleRequest request, String requesterEmail) {
+        requireLeaderMembership(teamId, requesterEmail);
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new RuntimeException("Team not found with id: " + teamId));
+
+        TeamMember member = teamMemberRepository.findById(memberId)
+                .orElseThrow(() -> new RuntimeException("Team member not found with id: " + memberId));
+
+        if (!member.getTeam().getId().equals(team.getId())) {
+            throw new RuntimeException("Team member does not belong to team: " + teamId);
+        }
+
+        try {
+            member.setRole(TeamMemberRole.valueOf(request.getRole()));
+            teamMemberRepository.save(member);
+        } catch (IllegalArgumentException e) {
+            throw new RuntimeException("Invalid role: " + request.getRole());
+        }
+    }
+
+    @Override
+    @Transactional
+    public void leaveTeam(Long teamId, String requesterEmail) {
+        Account account = getAccountByEmail(requesterEmail);
+        TeamMember member = requireTeamMembership(teamId, account.getId());
+
+        if (member.getRole() == TeamMemberRole.LEADER) {
+            List<TeamMember> allMembers = teamMemberRepository.findAllByTeamId(teamId);
+            long otherLeaders = allMembers.stream()
+                    .filter(m -> m.getRole() == TeamMemberRole.LEADER && !m.getAccount().getId().equals(account.getId()))
+                    .count();
+
+            if (otherLeaders == 0 && allMembers.size() > 1) {
+                throw new RuntimeException("Vui lòng chuyển quyền Trưởng nhóm cho người khác trước khi rời lớp.");
+            }
+        }
+
+        teamMemberRepository.delete(member);
+
+        Team syncedTeam = teamRepository.findById(teamId)
+                .orElseThrow(() -> new RuntimeException("Team not found with id: " + teamId));
+        chatConversationSyncService.syncClassConversation(
+                syncedTeam,
+                !syncedTeam.isActive(),
+                teamMemberRepository.findAllByTeamId(teamId));
+    }
+
+    @Override
+    public List<JoinRequestResponse> getPendingJoinRequests(Long teamId, String requesterEmail) {
+        requireLeaderMembership(teamId, requesterEmail);
+        return teamJoinRequestRepository.findByTeamIdAndStatus(teamId, TeamJoinRequest.JoinRequestStatus.PENDING)
+                .stream()
+                .map(req -> {
+                    Profile profile = profileRepository.findById(req.getAccount().getId()).orElse(null);
+                    return JoinRequestResponse.builder()
+                            .id(req.getId())
+                            .teamId(req.getTeam().getId())
+                            .accountId(req.getAccount().getId())
+                            .email(req.getAccount().getEmail())
+                            .firstName(profile != null ? profile.getFirstName() : "")
+                            .lastName(profile != null ? profile.getLastName() : "")
+                            .status(req.getStatus().name())
+                            .requestedAt(req.getRequestedAt())
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    @Transactional
+    public void approveJoinRequest(Long teamId, Long requestId, String requesterEmail) {
+        requireLeaderMembership(teamId, requesterEmail);
+        TeamJoinRequest request = teamJoinRequestRepository.findById(requestId)
+                .orElseThrow(() -> new RuntimeException("Request not found"));
+        
+        if (!request.getTeam().getId().equals(teamId)) {
+            throw new RuntimeException("Request does not belong to team");
+        }
+
+        request.setStatus(TeamJoinRequest.JoinRequestStatus.APPROVED);
+        teamJoinRequestRepository.save(request);
+
+        TeamMember newMember = TeamMember.builder()
+                .account(request.getAccount())
+                .team(request.getTeam())
+                .role(TeamMemberRole.MEMBER)
+                .joinedAt(java.time.LocalDateTime.now())
+                .build();
+        teamMemberRepository.save(newMember);
+
+        chatConversationSyncService.syncClassConversation(
+                request.getTeam(),
+                !request.getTeam().isActive(),
+                teamMemberRepository.findAllByTeamId(teamId));
+    }
+
+    @Override
+    @Transactional
+    public void rejectJoinRequest(Long teamId, Long requestId, String requesterEmail) {
+        requireLeaderMembership(teamId, requesterEmail);
+        TeamJoinRequest request = teamJoinRequestRepository.findById(requestId)
+                .orElseThrow(() -> new RuntimeException("Request not found"));
+        
+        if (!request.getTeam().getId().equals(teamId)) {
+            throw new RuntimeException("Request does not belong to team");
+        }
+
+        request.setStatus(TeamJoinRequest.JoinRequestStatus.REJECTED);
+        teamJoinRequestRepository.save(request);
+    }
+
+    @Override
+    @Transactional
+    public void updateApprovalSetting(Long teamId, boolean isApprovalRequired, String requesterEmail) {
+        requireLeaderMembership(teamId, requesterEmail);
+        Team team = teamRepository.findById(teamId)
+                .orElseThrow(() -> new RuntimeException("Team not found"));
+        team.setApprovalRequired(isApprovalRequired);
+        teamRepository.save(team);
     }
 
     private Account getAccountByEmail(String email) {
