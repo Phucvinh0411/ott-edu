@@ -9,16 +9,18 @@ interface AddMemberModalProps {
   onClose: () => void;
   onAddMember: (email: string) => Promise<void>;
   existingMemberIds?: string[];
+  suggestedUsers?: User[]; // 🚀 Thêm prop này để nhận danh sách gợi ý từ ngoài vào
 }
 
 export const AddMemberModal: React.FC<AddMemberModalProps> = ({ 
   isOpen, 
   onClose, 
   onAddMember,
-  existingMemberIds = [] 
+  existingMemberIds = [],
+  suggestedUsers = [] // Mặc định là mảng rỗng nếu không truyền
 }) => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [users, setUsers] = useState<User[]>([]);
+  const [globalUsers, setGlobalUsers] = useState<User[]>([]); // Đổi tên cho rõ nghĩa
   const [isLoading, setIsLoading] = useState(false);
   const [addedEmails, setAddedEmails] = useState<string[]>([]);
 
@@ -27,36 +29,35 @@ export const AddMemberModal: React.FC<AddMemberModalProps> = ({
     if (isOpen) {
       queueMicrotask(() => {
         setSearchQuery("");
-        setUsers([]);
+        setGlobalUsers([]);
         setAddedEmails([]);
       });
     }
   }, [isOpen]);
 
-  // Load danh sách user mỗi khi search query thay đổi hoặc khi mở modal
+  // 🚀 LOGIC TÌM KIẾM GLOBAL CÓ DEBOUNCE (CHỐNG SPAM)
   useEffect(() => {
     if (!isOpen) return;
     
-    const fetchUsers = async () => {
+    const normalized = searchQuery.trim();
+    if (normalized.length > 1) {
       setIsLoading(true);
-      try {
-        const res = await searchUsersApi(searchQuery) as { data: User[] };
-        
-        // 👇 IN DATA RA ĐỂ KIỂM TRA TRƯỚC 👇
-        console.log("=== DATA TỪ BACKEND TRẢ VỀ ===", res.data);
-        
-        setUsers(res.data || []);
-      } catch (error) {
-        console.error("Lỗi:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    const delayDebounce = setTimeout(() => {
-      fetchUsers();
-    }, 300);
+      
+      const delayDebounce = setTimeout(async () => {
+        try {
+          const res = await searchUsersApi(normalized) as { data: User[] };
+          setGlobalUsers(res.data || []);
+        } catch (error) {
+          console.error("Lỗi tìm kiếm:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      }, 500); // 500ms delay giống hệt Sidebar
 
-    return () => clearTimeout(delayDebounce);
+      return () => clearTimeout(delayDebounce);
+    } else {
+      setGlobalUsers([]); // Nếu xóa chữ đi thì clear kết quả global
+    }
   }, [searchQuery, isOpen]);
 
   if (!isOpen) return null;
@@ -69,6 +70,10 @@ export const AddMemberModal: React.FC<AddMemberModalProps> = ({
       console.error(error);
     }
   };
+
+  // 🚀 QUYẾT ĐỊNH XEM HIỂN THỊ MẢNG NÀO (GỢI Ý HAY GLOBAL)
+  const isSearchingText = searchQuery.trim().length > 1;
+  const usersToDisplay = isSearchingText ? globalUsers : suggestedUsers;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 backdrop-blur-sm px-4">
@@ -97,47 +102,59 @@ export const AddMemberModal: React.FC<AddMemberModalProps> = ({
 
         {/* User List */}
         <div className="flex-1 overflow-y-auto p-2">
+          {/* 👇 Tiêu đề phân biệt trạng thái tìm kiếm 👇 */}
+          {!isLoading && usersToDisplay.length > 0 && (
+             <p className="px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-400">
+               {isSearchingText ? "Kết quả tìm kiếm" : "Gợi ý thêm vào nhóm"}
+             </p>
+          )}
+
           {isLoading ? (
             <p className="text-center text-sm text-slate-400 mt-4">Đang tải danh sách...</p>
-          ) : users.length === 0 ? (
-            <p className="text-center text-sm text-slate-400 mt-4">Không tìm thấy người dùng.</p>
+          ) : usersToDisplay.length === 0 ? (
+            <p className="text-center text-sm text-slate-400 mt-4">
+              {isSearchingText ? "Không tìm thấy người dùng." : "Không có gợi ý nào."}
+            </p>
           ) : (
-            <div className="space-y-1">
-              {users.map((user) => {
-                // Lấy ID an toàn vượt ESLint
-                const userId = user.id || (user as User & { _id?: string })._id || "";
+            <div className="space-y-1 mt-1">
+              {usersToDisplay.map((user) => {
+                // ÉP KIỂU AN TOÀN KHÔNG DÙNG ANY ĐỂ VƯỢT ESLINT
+                const extUser = user as User & { _id?: string; fullName?: string; code?: string };
                 
-                // 👇 ÉP KIỂU AN TOÀN KHÔNG DÙNG ANY ĐỂ VƯỢT ESLINT 👇
-                const extUser = user as User & { fullName?: string; code?: string };
+                // 🚀 LẤY ĐẦY ĐỦ CẢ ID LẪN EMAIL ĐỂ QUÉT
+                const userId = extUser.id || extUser._id || "";
+                const userEmail = extUser.email || "";
                 
-                const displayName = extUser.fullName || extUser.name || (extUser.email ? extUser.email.split('@')[0] : "Người dùng");
+                const displayName = extUser.fullName || extUser.name || (userEmail ? userEmail.split('@')[0] : "Người dùng");
                 const displayCode = extUser.code;
-                // Logic chặn trùng lặp
-                const isAlreadyInGroup = existingMemberIds.includes(userId);
-                const isJustAdded = addedEmails.includes(user.email || "");
+                
+                // 🚀 FIX LỖI Ở ĐÂY: Quét chéo cả ID lẫn Email, đảm bảo không lọt lưới 1 ai
+                const isAlreadyInGroup = existingMemberIds.includes(userId) || (userEmail !== "" && existingMemberIds.includes(userEmail));
+                
+                const isJustAdded = addedEmails.includes(userEmail);
                 const isDisabled = isAlreadyInGroup || isJustAdded;
 
                 return (
-                  <div key={userId} className="flex items-center justify-between rounded-xl p-2 hover:bg-slate-50 transition">
+                  <div key={userId || userEmail} className="flex items-center justify-between rounded-xl p-2 hover:bg-slate-50 transition">
                     <div className="flex items-center gap-3 min-w-0">
                       <Image
-                        src={user.avatarUrl || `https://i.pravatar.cc/150?u=${user.email}`}
-                        alt={displayName} // Cập nhật alt thành tên thật
+                        src={user.avatarUrl || `https://i.pravatar.cc/150?u=${userEmail}`}
+                        alt={displayName}
                         width={40}
                         height={40}
                         className="h-10 w-10 shrink-0 rounded-full object-cover"
                       />
                       <div className="min-w-0">
-                        {/* 👇 HIỂN THỊ TÊN IN ĐẬM VÀ EMAIL (KÈM MSSV) 👇 */}
+                        {/* HIỂN THỊ TÊN IN ĐẬM VÀ EMAIL (KÈM MSSV) */}
                         <p className="truncate text-sm font-semibold text-slate-800">{displayName}</p>
                         <p className="truncate text-xs text-slate-500">
-                          {displayCode ? `MSSV: ${displayCode} - ${user.email}` : user.email}
+                          {displayCode ? `MSSV: ${displayCode} - ${userEmail}` : userEmail}
                         </p>
                       </div>
                     </div>
                     
                     <button
-                      onClick={() => !isDisabled && handleAdd(user.email || "")}
+                      onClick={() => !isDisabled && handleAdd(userEmail)}
                       disabled={isDisabled}
                       className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                         isAlreadyInGroup 

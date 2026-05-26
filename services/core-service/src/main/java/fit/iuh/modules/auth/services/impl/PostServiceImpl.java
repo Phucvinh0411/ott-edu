@@ -150,7 +150,7 @@ public class PostServiceImpl implements PostService {
     }
 
     @Override
-    public List<Post> getNewsfeed(String classId) {
+    public List<Post> getNewsfeed(String classId, String currentUserEmail) {
         // 1. Lấy danh sách bài viết từ MongoDB
         List<Post> posts = postRepository.findByClassIdOrderByCreatedAtDesc(classId);
 
@@ -199,6 +199,14 @@ public class PostServiceImpl implements PostService {
             } else {
                 // Nếu User chưa cập nhật Profile thì hiện tạm Email
                 post.setAuthorName(post.getAuthorId());
+            }
+
+            if (currentUserEmail != null) {
+                reactionRepository.findByTargetIdAndTargetTypeAndAuthorId(post.getId(), TargetType.POST, currentUserEmail)
+                        .ifPresent(reaction -> {
+                            // Gán đúng cái Type (LOVE, HAHA...) vào biến userReaction của Post
+                            post.setUserReaction(reaction.getType().name());
+                        });
             }
         }
 

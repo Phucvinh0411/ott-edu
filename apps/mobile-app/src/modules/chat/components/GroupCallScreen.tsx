@@ -46,7 +46,7 @@ interface GroupCallScreenProps {
   socket: Socket | null;
   /** Map từ userId → tên hiển thị (optional, fallback là userId ngắn) */
   participantNames?: Record<string, string>;
-  conversationType?: "private" | "class";
+  conversationType?: "private" | "class" | "group";
   callType?: MediaCallKind;
   initiatorUserId?: string | null;
   /** Signal from parent to force leaving the call */

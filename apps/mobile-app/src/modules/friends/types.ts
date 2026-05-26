@@ -3,7 +3,8 @@
  */
 
 export type FriendRequest = {
-  id: string;
+  id: string;      // ID số (nếu có từ MySQL)
+  _id?: string;    // ID MongoDB (cực kỳ quan trọng để fix lỗi Cast ObjectId)
   senderId: string;
   receiverId: string;
   senderName: string;
@@ -16,12 +17,12 @@ export type FriendRequest = {
 
 export type Friend = {
   id: string;
+  _id?: string;    // Thêm _id
   userId: string;
   name: string;
   email: string;
   avatarUrl?: string;
   status: "online" | "offline" | "away";
-  lastSeenAt?: string;
   isFriend: boolean;
   friendRequestSent?: boolean;
 };

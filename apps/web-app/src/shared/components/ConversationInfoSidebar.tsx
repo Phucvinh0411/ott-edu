@@ -82,7 +82,7 @@ interface ConversationInfoSidebarProps {
   isOpen: boolean;
   onClose: () => void;
   onOpenGroupManage?: () => void;
-  conversationType?: "private" | "class";
+  conversationType?: "private" | "class" | "group";
   refreshSignal?: number;
   currentUserId?: string;
 }

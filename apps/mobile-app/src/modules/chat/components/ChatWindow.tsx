@@ -513,12 +513,14 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
 
       {/* 🚀 RENDER MODAL THÊM THÀNH VIÊN CỦA BẠN */}
       {showAddMember && identity && (
-        <AddMemberModal
-          visible={showAddMember}
-          onClose={() => setShowAddMember(false)}
-          conversationId={conversation.id}
-          identity={identity}
-        />
+       <AddMemberModal
+  visible={showAddMember}
+  onClose={() => setShowAddMember(false)}
+  conversationId={conversation.id}
+  identity={identity}
+  // 🚀 TRUYỀN DANH SÁCH ID ĐỂ MODAL BIẾT AI ĐÃ Ở TRONG NHÓM
+  existingMemberIds={conversation.participants.map((p) => p.id || "")}
+/>
       )}
     </KeyboardAvoidingView>
   );

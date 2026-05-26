@@ -3,7 +3,7 @@ export type ChatAuthIdentity = {
   code?: string;
 };
 
-export type ChatMode = "private" | "class";
+export type ChatMode = "private" | "class" | "group";
 export type ChatConversationType = ChatMode | "group";
 
 export type VideoCallStatus = "idle" | "calling" | "receiving" | "connected";
@@ -28,12 +28,15 @@ export interface CallHistoryItem {
 
 export interface User {
   id: string;
+  _id?: string;
   name: string;
+  fullName?: string;
   email?: string;
   code?: string;
   role?: string;
   avatarUrl: string;
   isOnline: boolean;
+  friendStatus?: "none" | "pending" | "friend";
 }
 
 export interface Attachment {
@@ -122,10 +125,15 @@ export interface ActiveVideoCall {
 
 export interface ApiUser {
   _id: string;
+  id: string;
   fullName: string;
+  name?: string;          // Thêm cái này
   email?: string;
   code?: string;
+  role?: string;          // Thêm cái này
   avatarUrl?: string;
+  isOnline?: boolean;     // Thêm cái này
+  friendStatus?: "none" | "pending" | "friend";
 }
 
 export interface ApiAttachment {

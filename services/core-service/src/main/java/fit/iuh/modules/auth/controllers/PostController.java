@@ -229,9 +229,18 @@ public class PostController {
         }
     }
 
+    // Trong PostController.java
     @GetMapping("/class/{classId}")
-    public ResponseEntity<List<Post>> getNewsfeed(@PathVariable String classId) {
-        return ResponseEntity.ok(postService.getNewsfeed(classId));
+    public ResponseEntity<List<Post>> getNewsfeed(
+            @PathVariable String classId,
+            Authentication authentication // 👈 Thêm cái này để lấy thông tin user đang login
+    ) {
+        // Lấy email user hiện tại
+        String currentUserEmail = authentication != null ? authentication.getName() : null;
+
+        // Truyền email xuống Service
+        List<Post> posts = postService.getNewsfeed(classId, currentUserEmail);
+        return ResponseEntity.ok(posts);
     }
 
     @DeleteMapping("/{postId}")
