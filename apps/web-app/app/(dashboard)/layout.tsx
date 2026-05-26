@@ -6,6 +6,7 @@ import AppLayout from "@/shared/components/common/AppLayout";
 import type { NavItem } from "@/shared/types/navigation";
 import { useAuth } from "@/shared/providers/AuthProvider";
 import { getDisplayName } from "@/shared/utils/user-display";
+import AppLoader from "@/shared/components/common/AppLoader";
 
 export default function DashboardLayout({
   children,
@@ -19,8 +20,20 @@ export default function DashboardLayout({
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!isInitializing && !user) {
-      router.replace("/login");
+    if (!isInitializing) {
+      if (!user) {
+        router.replace("/login");
+      } else {
+        const isAdmin = user.roles?.some(
+          (role) =>
+            role === "ROLE_ADMIN" ||
+            role === "ROLE_SUPER_ADMIN" ||
+            role.includes("ADMIN")
+        );
+        if (isAdmin) {
+          router.replace("/admin");
+        }
+      }
     }
   }, [isInitializing, user, router]);
 
@@ -50,6 +63,21 @@ export default function DashboardLayout({
   const displayName = getDisplayName(user?.firstName, user?.lastName, user?.email);
   const userRole = formatRole(user?.roles?.[0]);
 
+  const isAdmin = user?.roles?.some(
+    (role) =>
+      role === "ROLE_ADMIN" ||
+      role === "ROLE_SUPER_ADMIN" ||
+      role.includes("ADMIN")
+  );
+
+  if (isInitializing || !user || isAdmin) {
+    return (
+      <div className="flex h-screen w-screen items-center justify-center bg-slate-50">
+        <AppLoader />
+      </div>
+    );
+  }
+
   // Get active page from pathname
   const getActivePageId = () => {
     if (pathname.includes('/teams')) return 'teams';
@@ -60,6 +88,19 @@ export default function DashboardLayout({
   };
 
   const sidebarItems: NavItem[] = [
+    {
+      id: "calendar",
+      label: "Calendar",
+      icon: (
+        <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+          <line x1="16" x2="16" y1="2" y2="6" />
+          <line x1="8" x2="8" y1="2" y2="6" />
+          <line x1="3" x2="21" y1="10" y2="10" />
+        </svg>
+      ),
+      href: "/calendar",
+    },
     {
       id: "teams",
       label: "Teams",
@@ -92,19 +133,6 @@ export default function DashboardLayout({
         </svg>
       ),
       href: "/assignments",
-    },
-    {
-      id: "calendar",
-      label: "Calendar",
-      icon: (
-        <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
-          <line x1="16" x2="16" y1="2" y2="6" />
-          <line x1="8" x2="8" y1="2" y2="6" />
-          <line x1="3" x2="21" y1="10" y2="10" />
-        </svg>
-      ),
-      href: "/calendar",
     },
   ];
 
