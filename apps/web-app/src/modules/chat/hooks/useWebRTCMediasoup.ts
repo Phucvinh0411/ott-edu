@@ -56,13 +56,28 @@ function isMobileUserAgent(): boolean {
   return /Android|iPhone|iPad|iPod|Mobile|webOS/i.test(navigator.userAgent);
 }
 
-const DESKTOP_DEVICE_PREFER_PATTERNS: RegExp[] = [/integrated/i, /webcam/i, /camera/i, /hd/i];
+const DESKTOP_DEVICE_PREFER_PATTERNS: RegExp[] = [
+  /integrated/i,
+  /built-in/i,
+  /facetime/i,
+  /internal/i,
+  /webcam/i,
+  /camera/i,
+  /hd/i,
+  /usb/i,
+  /video device/i,
+  /chicony/i,
+  /sunplus/i,
+  /realtek/i,
+];
 
 const DESKTOP_DEVICE_AVOID_PATTERNS: RegExp[] = [
   /mobile/i,
   /phone/i,
   /phone link/i,
-  /mobile device camera/i,
+  /link to windows/i,
+  /link/i,
+  /mobile device/i,
   /continuity/i,
   /pzinh/i,
   /droidcam/i,
@@ -72,6 +87,11 @@ const DESKTOP_DEVICE_AVOID_PATTERNS: RegExp[] = [
   /android/i,
   /iphone/i,
   /ip camera/i,
+  /virtual/i,
+  /obs/i,
+  /manycam/i,
+  /splitcam/i,
+  /ireasoning/i,
 ];
 
 function getDesktopDeviceScore(label?: string): number {
@@ -88,10 +108,6 @@ function getDesktopDeviceScore(label?: string): number {
 
   if (DESKTOP_DEVICE_AVOID_PATTERNS.some((pattern) => pattern.test(normalized))) {
     score -= 100;
-  }
-
-  if (normalized.includes("virtual")) {
-    score -= 30;
   }
 
   return score;
@@ -116,7 +132,7 @@ function buildPreferredConstraints(
     echoCancellation: true,
     noiseSuppression: true,
     autoGainControl: true,
-    ...(options?.audioDeviceId ? { deviceId: { exact: options.audioDeviceId } } : {}),
+    ...(options?.audioDeviceId ? { deviceId: { ideal: options.audioDeviceId } } : {}),
   };
 
   if (callType === "audio") {
@@ -130,7 +146,7 @@ function buildPreferredConstraints(
     width: { ideal: 1280 },
     height: { ideal: 720 },
     frameRate: { ideal: 30 },
-    ...(options?.videoDeviceId ? { deviceId: { exact: options.videoDeviceId } } : {}),
+    ...(options?.videoDeviceId ? { deviceId: { ideal: options.videoDeviceId } } : {}),
   };
 
   if (isMobileUserAgent()) {
@@ -209,23 +225,23 @@ async function requestUserMediaWithDesktopPreference(callType: MediaCallKind = "
   const preferredVideoId = videoIds[0];
   const preferredAudioId = audioIds[0];
 
-  if (preferredVideoId || preferredAudioId) {
-    try {
-      return await navigator.mediaDevices.getUserMedia(
-        buildPreferredConstraints({
-          videoDeviceId: preferredVideoId,
-          audioDeviceId: preferredAudioId,
-        }, callType),
-      );
-    } catch (error) {
-      console.warn("[useWebRTCMediasoup] Preferred device getUserMedia failed:", error);
-    }
-  }
-
   try {
-    return await navigator.mediaDevices.getUserMedia(buildPreferredConstraints(undefined, callType));
+    // Try requesting user media exactly once, using browser-friendly 'ideal' constraints.
+    // This allows the browser to automatically fall back to any other active media device
+    // without throwing constraints-based errors.
+    return await navigator.mediaDevices.getUserMedia(
+      buildPreferredConstraints({
+        videoDeviceId: preferredVideoId,
+        audioDeviceId: preferredAudioId,
+      }, callType),
+    );
   } catch (error) {
-    return fallbackToAudio(error);
+    console.warn("[useWebRTCMediasoup] Preferred device getUserMedia failed, attempting fallback:", error);
+    try {
+      return await navigator.mediaDevices.getUserMedia(buildPreferredConstraints(undefined, callType));
+    } catch (fallbackError) {
+      return fallbackToAudio(fallbackError);
+    }
   }
 }
 
@@ -868,7 +884,7 @@ export default function useWebRTCMediasoup({
         // Get local media
         const stream = await ensureLocalStream(callType);
         const effectiveCallType: MediaCallKind = stream.getVideoTracks().length > 0 ? callType : "audio";
-        requestedCallTypeRef.current = effectiveCallType;
+        requestedCallTypeRef.current = callType;
         setLocalStream(stream);
 
         const joinResponse = await joinMediaRoom(conversationId);
@@ -926,7 +942,7 @@ export default function useWebRTCMediasoup({
           conversationId,
           peerUserId: "",
           direction: "group",
-          callType: effectiveCallType,
+          callType: callType,
         });
         setCallStatus("connected");
       } catch (error) {

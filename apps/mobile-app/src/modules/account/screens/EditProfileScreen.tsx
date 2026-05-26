@@ -132,7 +132,6 @@ export default function EditProfileScreen() {
         about,
         phone,
         avatarUrl: avatarUrl || "",
-        departmentId: departmentId ? Number(departmentId) : undefined,
       });
       setUser(updated);
       Alert.alert("Thanh cong", "Da cap nhat ho so.");
@@ -170,10 +169,26 @@ export default function EditProfileScreen() {
               <Text style={styles.mutedText}>JPG, PNG, WEBP, GIF</Text>
             </View>
           </View>
-          <Pressable style={styles.secondaryButton} onPress={handlePickAvatar} disabled={isUploading}>
-            <Ionicons name="cloud-upload-outline" size={16} color="#334155" />
-            <Text style={styles.secondaryText}>{isUploading ? "Dang tai..." : "Upload avatar"}</Text>
-          </Pressable>
+          <View style={{ flexDirection: "row", gap: 10, marginTop: 4 }}>
+            <Pressable style={[styles.secondaryButton, { flex: 1 }]} onPress={handlePickAvatar} disabled={isUploading}>
+              <Ionicons name="cloud-upload-outline" size={16} color="#334155" />
+              <Text style={styles.secondaryText}>{isUploading ? "Dang tai..." : "Upload avatar"}</Text>
+            </Pressable>
+            {Boolean(avatarUrl) && (
+              <Pressable
+                style={[styles.secondaryButton, { flex: 1, borderColor: "#fecaca" }]}
+                onPress={() => {
+                  setAvatarUrl(null);
+                  if (user) {
+                    setUser({ ...user, avatarUrl: null });
+                  }
+                }}
+              >
+                <Ionicons name="trash-outline" size={16} color="#ef4444" />
+                <Text style={[styles.secondaryText, { color: "#ef4444" }]}>Delete avatar</Text>
+              </Pressable>
+            )}
+          </View>
         </View>
 
         <View style={styles.section}>
@@ -182,14 +197,6 @@ export default function EditProfileScreen() {
 
           <Text style={styles.label}>Phone Number</Text>
           <TextInput value={phone} onChangeText={setPhone} style={styles.input} editable={!isLoading} />
-
-          <Text style={styles.label}>Department</Text>
-          <Pressable style={styles.selectTrigger} onPress={() => setActiveSelect("department")}>
-            <Text style={styles.selectText}>
-              {departments.find((item) => String(item.id) === departmentId)?.name || "Select department"}
-            </Text>
-            <Ionicons name="chevron-down" size={16} color="#64748b" />
-          </Pressable>
 
           <Text style={styles.label}>About</Text>
           <TextInput
@@ -206,17 +213,6 @@ export default function EditProfileScreen() {
           </Pressable>
         </View>
       </ScrollView>
-
-      <SelectModal
-        visible={activeSelect === "department"}
-        title="Select department"
-        options={departmentOptions}
-        selectedValue={departmentId}
-        loading={false}
-        emptyText="No departments found"
-        onClose={() => setActiveSelect(null)}
-        onSelect={(value) => setDepartmentId(value)}
-      />
     </SafeAreaView>
   );
 }

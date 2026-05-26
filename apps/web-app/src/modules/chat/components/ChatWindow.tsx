@@ -553,16 +553,22 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
               </div>
 
               {remoteStreamsList.length > 0 ? (
-                <div className="absolute inset-x-0 bottom-28 flex justify-center gap-3 px-4 flex-wrap">
-                  {remoteStreamsList.map(([userId]) => (
-                    <div
-                      key={userId}
-                      className="flex h-14 min-w-14 items-center justify-center rounded-full border border-white/15 bg-white/10 px-4 text-xs text-white/90 backdrop-blur-sm"
-                    >
-                      {userId.slice(-6)}
-                    </div>
+                <>
+                  {/* Invisible audio elements to decode and play sound */}
+                  {remoteStreamsList.map(([userId, stream]) => (
+                    <RemoteAudio key={userId} stream={stream} />
                   ))}
-                </div>
+                  <div className="absolute inset-x-0 bottom-28 flex justify-center gap-3 px-4 flex-wrap">
+                    {remoteStreamsList.map(([userId]) => (
+                      <div
+                        key={userId}
+                        className="flex h-14 min-w-14 items-center justify-center rounded-full border border-white/15 bg-white/10 px-4 text-xs text-white/90 backdrop-blur-sm"
+                      >
+                        {userId.slice(-6)}
+                      </div>
+                    ))}
+                  </div>
+                </>
               ) : null}
 
               {renderLocalPreview()}
@@ -629,13 +635,25 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     className="relative overflow-hidden rounded-2xl bg-slate-800 ring-1 ring-white/10"
                     style={{ aspectRatio: "16/9" }}
                   >
-                    <RemoteVideo
-                      key={userId}
-                      stream={stream}
-                      autoPlay
-                      playsInline
-                      className="h-full w-full object-cover"
-                    />
+                    {stream.getVideoTracks().length > 0 ? (
+                      <RemoteVideo
+                        key={userId}
+                        stream={stream}
+                        autoPlay
+                        playsInline
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center bg-slate-900 text-white/90">
+                        <div className="flex flex-col items-center gap-2">
+                          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white/10">
+                            <Users size={20} />
+                          </div>
+                          <p className="text-[10px] text-white/60">Camera tat</p>
+                        </div>
+                        <RemoteAudio key={userId} stream={stream} />
+                      </div>
+                    )}
                     <div className="absolute bottom-2 left-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] text-white backdrop-blur-sm">
                       {userId.slice(-6)}
                     </div>

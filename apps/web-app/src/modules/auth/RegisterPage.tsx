@@ -11,6 +11,8 @@ import {
 import {
   getDepartmentsBySchoolId,
   registerAccount,
+  sendRegisterOtp,
+  verifyOtp,
   type DepartmentOption,
 } from "@/services/auth/auth.service";
 import Input from "@/shared/components/ui/Input";
@@ -64,6 +66,44 @@ export default function RegisterPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [departmentId, setDepartmentId] = useState("");
 
+  const [otpChallenge, setOtpChallenge] = useState<{ challengeId: string } | null>(null);
+  const [otpCode, setOtpCode] = useState("");
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [otpVerifiedToken, setOtpVerifiedToken] = useState<string | null>(null);
+  const [otpError, setOtpError] = useState<string | null>(null);
+
+  const handleSendOtp = async () => {
+    try {
+      setIsSendingOtp(true);
+      setOtpError(null);
+      const challenge = await sendRegisterOtp({ email: form.email.trim() });
+      setOtpChallenge(challenge);
+    } catch (error) {
+      setOtpError(error instanceof Error ? error.message : "Gửi OTP thất bại.");
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    try {
+      setIsVerifyingOtp(true);
+      setOtpError(null);
+      if (!otpChallenge) return;
+      const result = await verifyOtp({
+        challengeId: otpChallenge.challengeId,
+        otpCode,
+        purpose: "REGISTER",
+      });
+      setOtpVerifiedToken(result.verifiedToken);
+    } catch (error) {
+      setOtpError(error instanceof Error ? error.message : "Xác minh OTP thất bại.");
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
   const [departments, setDepartments] = useState<DepartmentOption[]>([]);
   const [isDepartmentsLoading, setIsDepartmentsLoading] = useState(false);
   const [metaLoadError, setMetaLoadError] = useState<string | null>(null);
@@ -104,7 +144,8 @@ export default function RegisterPage() {
 
   const isFormValid =
     Object.values(errors).every((value) => !value) &&
-    Object.values(extraErrors).every((value) => !value);
+    Object.values(extraErrors).every((value) => !value) &&
+    Boolean(otpVerifiedToken);
   const maxBirthDate = useMemo(() => new Date().toISOString().split("T")[0], []);
 
   useEffect(() => {
@@ -193,6 +234,7 @@ export default function RegisterPage() {
         code: code.trim(),
         schoolId: DEFAULT_SCHOOL_ID,
         departmentId: Number(departmentId),
+        verifiedToken: otpVerifiedToken ?? undefined,
       });
 
       setSubmitSuccess(responseMessage || `Đăng ký thành công tài khoản sinh viên cho ${form.fullName.trim()}. Bạn có thể đăng nhập ngay.`);
@@ -201,6 +243,10 @@ export default function RegisterPage() {
       setCode("");
       setAcceptedTerms(false);
       setDepartmentId("");
+      setOtpChallenge(null);
+      setOtpCode("");
+      setOtpVerifiedToken(null);
+      setOtpError(null);
       setTouched({
         email: false,
         fullName: false,
@@ -248,18 +294,67 @@ export default function RegisterPage() {
             </div>
 
             <div className="space-y-1">
-              <Input
-                label="Email"
-                type="email"
-                name="email"
-                autoComplete="email"
-                placeholder="student@iuh.edu.vn"
-                value={form.email}
-                onChange={handleChange("email")}
-                onBlur={handleBlur("email")}
-              />
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <Input
+                    label="Email"
+                    type="email"
+                    name="email"
+                    autoComplete="email"
+                    placeholder="student@iuh.edu.vn"
+                    value={form.email}
+                    onChange={handleChange("email")}
+                    onBlur={handleBlur("email")}
+                    disabled={Boolean(otpVerifiedToken)}
+                  />
+                </div>
+                {!otpVerifiedToken && (
+                  <button
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={isSendingOtp || !form.email || Boolean(errors.email)}
+                    className="h-11 px-4 text-xs font-semibold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 disabled:bg-slate-100 disabled:text-slate-400 shrink-0 transition active:scale-95"
+                  >
+                    {isSendingOtp ? "Đang gửi..." : "Gửi mã OTP"}
+                  </button>
+                )}
+              </div>
               <AuthFieldError message={touched.email ? errors.email : undefined} />
             </div>
+
+            {otpChallenge && !otpVerifiedToken && (
+              <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4 space-y-3">
+                <p className="text-xs text-slate-500 font-medium">
+                  Mã OTP đã được gửi đến email của bạn. Vui lòng nhập mã 6 số để xác thực.
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    maxLength={6}
+                    placeholder="Nhập 6 số OTP"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                    className="h-11 flex-1 rounded-xl border border-slate-200 bg-white px-4 text-sm font-semibold tracking-widest text-slate-800 text-center focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleVerifyOtp}
+                    disabled={isVerifyingOtp || otpCode.length !== 6}
+                    className="h-11 px-4 text-xs font-semibold text-white bg-green-600 rounded-xl hover:bg-green-700 disabled:bg-slate-100 disabled:text-slate-400 shrink-0 transition active:scale-95"
+                  >
+                    {isVerifyingOtp ? "Đang xác minh..." : "Xác minh"}
+                  </button>
+                </div>
+                {otpError && <p className="text-xs text-red-500 font-medium">{otpError}</p>}
+              </div>
+            )}
+
+            {otpVerifiedToken && (
+              <div className="rounded-2xl border border-green-200 bg-green-50 p-3 text-xs font-semibold text-green-700 flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                Đã xác thực email thành công!
+              </div>
+            )}
 
             <div className="space-y-1">
               <Input

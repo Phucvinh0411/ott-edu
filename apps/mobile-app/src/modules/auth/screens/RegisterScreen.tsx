@@ -19,6 +19,8 @@ import {
   getDepartmentsBySchoolId,
   getSchools,
   registerAccount,
+  sendRegisterOtp,
+  verifyOtp,
 } from "../auth.service";
 import { type RegisterValidationInput, validateRegisterForm } from "../validators";
 import SelectModal, { type SelectOption } from "../../../shared/ui/SelectModal";
@@ -90,6 +92,44 @@ export default function RegisterScreen() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  const [otpChallenge, setOtpChallenge] = useState<{ challengeId: string } | null>(null);
+  const [otpCode, setOtpCode] = useState("");
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
+  const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
+  const [otpVerifiedToken, setOtpVerifiedToken] = useState<string | null>(null);
+  const [otpError, setOtpError] = useState<string | null>(null);
+
+  const handleSendOtp = async () => {
+    try {
+      setIsSendingOtp(true);
+      setOtpError(null);
+      const challenge = await sendRegisterOtp({ email: form.email.trim() });
+      setOtpChallenge(challenge);
+    } catch (error) {
+      setOtpError(error instanceof Error ? error.message : "Gửi OTP thất bại.");
+    } finally {
+      setIsSendingOtp(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    try {
+      setIsVerifyingOtp(true);
+      setOtpError(null);
+      if (!otpChallenge) return;
+      const result = await verifyOtp({
+        challengeId: otpChallenge.challengeId,
+        otpCode,
+        purpose: "REGISTER",
+      });
+      setOtpVerifiedToken(result.verifiedToken);
+    } catch (error) {
+      setOtpError(error instanceof Error ? error.message : "Xác minh OTP thất bại.");
+    } finally {
+      setIsVerifyingOtp(false);
+    }
+  };
+
   const [schoolId, setSchoolId] = useState("");
   const [departmentId, setDepartmentId] = useState("");
   const [customSchool, setCustomSchool] = useState("");
@@ -152,7 +192,8 @@ export default function RegisterScreen() {
 
   const isFormValid =
     Object.values(errors).every((value) => !value) &&
-    Object.values(extraErrors).every((value) => !value);
+    Object.values(extraErrors).every((value) => !value) &&
+    Boolean(otpVerifiedToken);
 
   const schoolOptions = useMemo<SelectOption[]>(
     () => schools.map((school) => ({ value: String(school.id), label: school.name })),
@@ -295,6 +336,7 @@ export default function RegisterScreen() {
         departmentId: useCustomDepartment ? null : Number(departmentId),
         customSchool: useCustomSchool ? customSchool.trim() : null,
         customDepartment: useCustomDepartment ? customDepartment.trim() : null,
+        verifiedToken: otpVerifiedToken ?? undefined,
       };
 
       const message = await registerAccount(payload);
@@ -343,15 +385,87 @@ export default function RegisterScreen() {
             editable={!isSubmitting}
           />
 
-          <Field
-            label="Email"
-            value={form.email}
-            onChangeText={(value) => handleChange("email", value)}
-            onBlur={() => handleBlur("email")}
-            error={touched.email ? errors.email : undefined}
-            editable={!isSubmitting}
-            keyboardType="email-address"
-          />
+          <View style={styles.fieldGroup}>
+            <Text style={styles.label}>Email</Text>
+            <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+              <TextInput
+                value={form.email}
+                onChangeText={(value) => handleChange("email", value)}
+                onBlur={() => handleBlur("email")}
+                style={[styles.input, { flex: 1 }]}
+                editable={!isSubmitting && !otpVerifiedToken}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+              {!otpVerifiedToken && (
+                <Pressable
+                  disabled={isSendingOtp || !form.email || Boolean(errors.email)}
+                  onPress={handleSendOtp}
+                  style={({ pressed }) => [
+                    {
+                      height: 46,
+                      paddingHorizontal: 12,
+                      backgroundColor: "#4f46e5",
+                      borderRadius: 10,
+                      justifyContent: "center",
+                      alignItems: "center",
+                      opacity: (isSendingOtp || !form.email || Boolean(errors.email)) ? 0.5 : (pressed ? 0.8 : 1),
+                    }
+                  ]}
+                >
+                  <Text style={{ color: "#ffffff", fontWeight: "600", fontSize: 13 }}>
+                    {isSendingOtp ? "Đang gửi..." : "Gửi OTP"}
+                  </Text>
+                </Pressable>
+              )}
+            </View>
+            {touched.email && errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+          </View>
+
+          {otpChallenge && !otpVerifiedToken && (
+            <View style={{ backgroundColor: "#f1f5f9", padding: 12, borderRadius: 12, gap: 8, borderWidth: 1, borderColor: "#e2e8f0" }}>
+              <Text style={{ fontSize: 12, color: "#475569", lineHeight: 16 }}>
+                Mã OTP đã được gửi đến email của bạn. Vui lòng nhập mã 6 số để xác thực.
+              </Text>
+              <View style={{ flexDirection: "row", gap: 10, alignItems: "center" }}>
+                <TextInput
+                  placeholder="Nhập 6 số OTP"
+                  keyboardType="number-pad"
+                  maxLength={6}
+                  value={otpCode}
+                  onChangeText={(value) => setOtpCode(value.replace(/\D/g, ""))}
+                  style={[styles.input, { flex: 1, textAlign: "center", fontWeight: "700", letterSpacing: 2 }]}
+                />
+                <Pressable
+                  disabled={isVerifyingOtp || otpCode.length !== 6}
+                  onPress={handleVerifyOtp}
+                  style={({ pressed }) => [
+                    {
+                      height: 46,
+                      paddingHorizontal: 16,
+                      backgroundColor: "#16a34a",
+                      borderRadius: 10,
+                      justifyContent: "center",
+                      alignItems: "center",
+                      opacity: (isVerifyingOtp || otpCode.length !== 6) ? 0.5 : (pressed ? 0.8 : 1),
+                    }
+                  ]}
+                >
+                  <Text style={{ color: "#ffffff", fontWeight: "600", fontSize: 13 }}>
+                    {isVerifyingOtp ? "Xác minh..." : "Xác minh"}
+                  </Text>
+                </Pressable>
+              </View>
+              {otpError ? <Text style={styles.errorText}>{otpError}</Text> : null}
+            </View>
+          )}
+
+          {otpVerifiedToken && (
+            <View style={{ backgroundColor: "#dcfce7", padding: 10, borderRadius: 10, borderWidth: 1, borderColor: "#bbf7d0", flexDirection: "row", alignItems: "center", gap: 6 }}>
+              <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: "#22c55e" }} />
+              <Text style={{ fontSize: 13, color: "#166534", fontWeight: "600" }}>Đã xác thực email thành công!</Text>
+            </View>
+          )}
 
           <Field
             label="Mã sinh viên"

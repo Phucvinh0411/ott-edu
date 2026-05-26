@@ -29,7 +29,7 @@ export default function EditPersonalInformationPage() {
     phone: "",
   });
 
-  const [avatarUrl, setAvatarUrl] = useState("/assets/avatar-placeholder.png");
+  const [avatarUrl, setAvatarUrl] = useState("/assets/avatar-placeholder.svg");
 
   useEffect(() => {
     let mounted = true;
@@ -47,7 +47,7 @@ export default function EditPersonalInformationPage() {
             about: user.bio || "",
             phone: user.phone || "",
           });
-          setAvatarUrl(user.avatarUrl || "/assets/avatar-placeholder.png");
+          setAvatarUrl(user.avatarUrl || "/assets/avatar-placeholder.svg");
         }
 
         if (user.schoolId) {
@@ -83,7 +83,7 @@ export default function EditPersonalInformationPage() {
   };
 
   const handleRemove = () => {
-    setAvatarUrl("/assets/avatar-placeholder.png");
+    setAvatarUrl("/assets/avatar-placeholder.svg");
     if (authUser) {
       setUser({ ...authUser, avatarUrl: null });
     }
@@ -124,8 +124,7 @@ export default function EditPersonalInformationPage() {
         fullName: formData.fullName,
         about: formData.about,
         phone: formData.phone,
-        avatarUrl: avatarUrl === "/assets/avatar-placeholder.png" ? "" : avatarUrl,
-        departmentId: formData.departmentId ? Number(formData.departmentId) : undefined,
+        avatarUrl: avatarUrl === "/assets/avatar-placeholder.svg" ? "" : avatarUrl,
       });
 
       setUser(updatedUser);
@@ -258,24 +257,7 @@ export default function EditPersonalInformationPage() {
             </div>
           </div>
 
-          <div>
-            <label htmlFor="department" className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">
-              Đơn vị / Khoa chuyên ngành
-            </label>
-            <select
-              id="department"
-              value={formData.departmentId}
-              onChange={(e) => handleInputChange("departmentId", e.target.value)}
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 transition-colors focus:border-blue-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/10"
-            >
-              <option value="">Chọn đơn vị / Khoa</option>
-              {departments.map((department) => (
-                <option key={department.id} value={department.id}>
-                  {department.name}
-                </option>
-              ))}
-            </select>
-          </div>
+
 
           <div>
             <label htmlFor="about" className="mb-2 block text-xs font-bold uppercase tracking-wider text-slate-500">
