@@ -1,6 +1,7 @@
 import { useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import UserAvatar from "../../../shared/components/UserAvatar";
 
@@ -44,6 +45,7 @@ export default function AccountOverviewScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const [schoolName, setSchoolName] = useState<string>("Đang tải...");
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
 
   const fullName = useMemo(() => {
     const value = [user?.firstName, user?.lastName].filter(Boolean).join(" ").trim();
@@ -109,43 +111,95 @@ export default function AccountOverviewScreen() {
               />
               <View style={[styles.statusIndicator, { backgroundColor: statusMeta.color }]} />
             </View>
-            <View style={styles.profileMeta}>
-              <Text style={styles.profileName} numberOfLines={1}>{fullName}</Text>
-              <Text style={styles.profileEmail} numberOfLines={1}>{user?.email || "Chưa thiết lập email"}</Text>
-              <View style={styles.badgeRow}>
-                <View style={styles.roleBadge}>
-                  <Text style={styles.roleBadgeText}>{roleLabel}</Text>
-                </View>
-                <View style={styles.statusBadge}>
-                  <Text style={[styles.statusBadgeText, { color: statusMeta.color }]}>{statusMeta.label}</Text>
-                </View>
-              </View>
-            </View>
-          </View>
+             <View style={styles.profileMeta}>
+               <View style={{ position: "relative", zIndex: 10 }}>
+                 <Pressable
+                   onPressIn={() => setActiveTooltip("name")}
+                   onPressOut={() => setActiveTooltip(null)}
+                 >
+                   <Text style={styles.profileName} numberOfLines={1}>{fullName}</Text>
+                 </Pressable>
+                 {activeTooltip === "name" && (
+                   <View style={styles.tooltipContainer}>
+                     <Text style={styles.tooltipText}>{fullName}</Text>
+                     <View style={styles.tooltipArrow} />
+                   </View>
+                 )}
+               </View>
 
-          {/* School & Department Sub-Card */}
-          <View style={styles.schoolInfoCard}>
-            <View style={styles.schoolRow}>
-              <View style={styles.iconCircle}>
-                <Ionicons name="school" size={16} color="#4f46e5" />
-              </View>
-              <View style={styles.schoolTextWrap}>
-                <Text style={styles.schoolLabel}>Trường</Text>
-                <Text style={styles.schoolValue} numberOfLines={1}>{schoolName}</Text>
-              </View>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.schoolRow}>
-              <View style={styles.iconCircle}>
-                <Ionicons name="business" size={16} color="#06b6d4" />
-              </View>
-              <View style={styles.schoolTextWrap}>
-                <Text style={styles.schoolLabel}>Khoa / Phòng ban</Text>
-                <Text style={styles.schoolValue} numberOfLines={1}>
-                  {user?.departmentName || "Chưa cập nhật khoa"}
-                </Text>
-              </View>
-            </View>
+               <View style={{ position: "relative", zIndex: 9 }}>
+                 <Pressable
+                   onPressIn={() => setActiveTooltip("email")}
+                   onPressOut={() => setActiveTooltip(null)}
+                 >
+                   <Text style={styles.profileEmail} numberOfLines={1}>{user?.email || "Chưa thiết lập email"}</Text>
+                 </Pressable>
+                 {activeTooltip === "email" && (
+                   <View style={styles.tooltipContainer}>
+                     <Text style={styles.tooltipText}>{user?.email || ""}</Text>
+                     <View style={styles.tooltipArrow} />
+                   </View>
+                 )}
+               </View>
+
+               <View style={styles.badgeRow}>
+                 <View style={styles.roleBadge}>
+                   <Text style={styles.roleBadgeText}>{roleLabel}</Text>
+                 </View>
+                 <View style={styles.statusBadge}>
+                   <Text style={[styles.statusBadgeText, { color: statusMeta.color }]}>{statusMeta.label}</Text>
+                 </View>
+               </View>
+             </View>
+           </View>
+ 
+           {/* School & Department Sub-Card */}
+           <View style={styles.schoolInfoCard}>
+             <View style={styles.schoolRow}>
+               <View style={styles.iconCircle}>
+                 <Ionicons name="school" size={16} color="#4f46e5" />
+               </View>
+               <View style={{ flex: 1, position: "relative", zIndex: 8 }}>
+                 <Pressable
+                   style={styles.schoolTextWrap}
+                   onPressIn={() => setActiveTooltip("school")}
+                   onPressOut={() => setActiveTooltip(null)}
+                 >
+                   <Text style={styles.schoolLabel}>Trường</Text>
+                   <Text style={styles.schoolValue} numberOfLines={1}>{schoolName}</Text>
+                 </Pressable>
+                 {activeTooltip === "school" && (
+                   <View style={styles.tooltipContainer}>
+                     <Text style={styles.tooltipText}>{schoolName}</Text>
+                     <View style={styles.tooltipArrow} />
+                   </View>
+                 )}
+               </View>
+             </View>
+             <View style={styles.divider} />
+             <View style={styles.schoolRow}>
+               <View style={styles.iconCircle}>
+                 <Ionicons name="business" size={16} color="#06b6d4" />
+               </View>
+               <View style={{ flex: 1, position: "relative", zIndex: 7 }}>
+                 <Pressable
+                   style={styles.schoolTextWrap}
+                   onPressIn={() => setActiveTooltip("dept")}
+                   onPressOut={() => setActiveTooltip(null)}
+                 >
+                   <Text style={styles.schoolLabel}>Khoa / Phòng ban</Text>
+                   <Text style={styles.schoolValue} numberOfLines={1}>
+                     {user?.departmentName || "Chưa cập nhật khoa"}
+                   </Text>
+                 </Pressable>
+                 {activeTooltip === "dept" && (
+                   <View style={styles.tooltipContainer}>
+                     <Text style={styles.tooltipText}>{user?.departmentName || "Chưa cập nhật khoa"}</Text>
+                     <View style={styles.tooltipArrow} />
+                   </View>
+                 )}
+               </View>
+             </View>
           </View>
         </View>
 
@@ -387,5 +441,41 @@ const styles = StyleSheet.create({
     height: 1,
     backgroundColor: "#f1f5f9",
     marginLeft: 62,
+  },
+  tooltipContainer: {
+    position: "absolute",
+    bottom: "100%",
+    left: 0,
+    backgroundColor: "#1e293b",
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    marginBottom: 6,
+    zIndex: 9999,
+    minWidth: 80,
+    alignSelf: "flex-start",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  tooltipText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  tooltipArrow: {
+    position: "absolute",
+    top: "100%",
+    left: 14,
+    width: 0,
+    height: 0,
+    borderLeftWidth: 6,
+    borderLeftColor: "transparent",
+    borderRightWidth: 6,
+    borderRightColor: "transparent",
+    borderTopWidth: 6,
+    borderTopColor: "#1e293b",
   },
 });
