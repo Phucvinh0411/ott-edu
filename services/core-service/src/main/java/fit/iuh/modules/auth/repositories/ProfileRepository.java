@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import fit.iuh.models.Profile;
+import org.springframework.data.jpa.repository.Modifying;
 
 @Repository
 public interface ProfileRepository extends JpaRepository<Profile, Long> {

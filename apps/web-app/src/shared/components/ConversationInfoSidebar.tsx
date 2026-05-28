@@ -11,15 +11,12 @@ import React, { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import {
   ChevronDown,
-  Bell,
-  Pin,
   UserPlus,
   Settings,
   Image as ImageIcon,
   File,
   Link as LinkIcon,
   Lock,
-  Trash2,
 } from "lucide-react";
 import AddTeamMemberModal from "@/modules/teams/AddTeamMemberModal";
 import {
@@ -183,7 +180,7 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
   const handleToggleOnlyAdminCanMessage = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!conversationInfo) return;
     const value = e.target.checked;
-    
+
     // Optimistic update
     const previousValue = conversationInfo.onlyAdminCanMessage;
     setConversationInfo((prev) => prev ? { ...prev, onlyAdminCanMessage: value } : null);
@@ -215,12 +212,12 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
     if (!isPrivateChat || !conversationInfo?.participants || conversationInfo.participants.length < 2) {
       return null;
     }
-    
+
     // In 1-1 chat, return the participant that is not the owner
     if (conversationInfo.ownerId) {
       return conversationInfo.participants.find(p => p._id !== conversationInfo.ownerId);
     }
-    
+
     // If no owner set, return the second participant
     return conversationInfo.participants[1];
   };
@@ -275,7 +272,7 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
       console.log("[fetchMediaItems] Starting...");
       const apiData = await fetchMediaItemsApi(conversationId, 20);
       console.log("[fetchMediaItems] API returned:", apiData);
-      
+
       // Check if API already returns UI items or raw messages
       let items: MediaItemUI[] = [];
       if (apiData && apiData.length > 0) {
@@ -290,7 +287,7 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
           items = extractMediaItems(apiData);
         }
       }
-      
+
       console.log("[fetchMediaItems] Extracted items:", items);
       setMediaItems(items);
     } catch (err) {
@@ -305,7 +302,7 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
       console.log("[fetchFileItems] Starting...");
       const apiData = await fetchFileItemsApi(conversationId, 20);
       console.log("[fetchFileItems] API returned:", apiData);
-      
+
       // Check if API already returns UI items or raw messages
       let items: FileItemUI[] = [];
       if (apiData && apiData.length > 0) {
@@ -320,7 +317,7 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
           items = extractFileItems(apiData);
         }
       }
-      
+
       console.log("[fetchFileItems] Extracted items:", items);
       setFileItems(items);
     } catch (err) {
@@ -335,7 +332,7 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
       console.log("[fetchLinkItems] Starting...");
       const apiData = await fetchLinkItemsApi(conversationId, 20);
       console.log("[fetchLinkItems] API returned:", apiData);
-      
+
       // Check if API already returns UI items or raw messages
       let items: LinkItemUI[] = [];
       if (apiData && apiData.length > 0) {
@@ -350,7 +347,7 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
           items = extractLinkItems(apiData);
         }
       }
-      
+
       console.log("[fetchLinkItems] Extracted items:", items);
       setLinkItems(items);
     } catch (err) {
@@ -404,7 +401,7 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
       console.log("[ConversationInfoSidebar] Starting loadAllData");
       setLoading(true);
       setError(null);
-      
+
       // Create a timeout promise to prevent infinite loading
       const timeoutPromise = new Promise<never>((_, reject) =>
         setTimeout(() => {
@@ -415,7 +412,7 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
 
       try {
         console.log("[ConversationInfoSidebar] Fetching data...");
-        
+
         // BULLETPROOF: Race against timeout to prevent hanging
         // Use allSettled so partial failures don't prevent full load
         const results = await Promise.race([
@@ -435,7 +432,7 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
           const failedOperations = results
             .map((r, i) => ({ i, r }))
             .filter((item) => item.r.status === 'rejected');
-          
+
           if (failedOperations.length > 0) {
             console.warn(
               "[ConversationInfoSidebar] Some operations failed:",
@@ -597,7 +594,7 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
         <div className="flex-1 overflow-y-auto">
           {/* Quick Action Buttons */}
           <div className="grid grid-cols-2 gap-2 px-3 py-3 bg-gray-50 border-b border-gray-200">
-            <button
+            {/* <button
               className="flex flex-col items-center gap-1 p-2 hover:bg-gray-200 rounded-lg transition"
               title="Tắt thông báo"
             >
@@ -610,7 +607,7 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
             >
               <Pin size={16} className="text-gray-600" />
               <span className="text-xs text-gray-700">Ghim</span>
-            </button>
+            </button> */}
             {!isPrivateChat && (
               <button
                 onClick={() => setIsAddMemberModalOpen(true)}
@@ -922,7 +919,7 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
                   </label>
                 </div>
               )}
-              {conversationType === "class" && onOpenGroupManage && (
+              {/* {conversationType === "class" && onOpenGroupManage && (
                 <>
                   <button
                     type="button"
@@ -938,8 +935,8 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
                     <span>Quản lý nhóm</span>
                   </button>
                 </>
-              )}
-              <button className="w-full flex items-center gap-2 p-2 hover:bg-white rounded transition text-left text-xs text-gray-700">
+              )} */}
+              {/* <button className="w-full flex items-center gap-2 p-2 hover:bg-white rounded transition text-left text-xs text-gray-700">
                 <span className="text-gray-600 shrink-0">
                   <Lock size={12} />
                 </span>
@@ -965,7 +962,7 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
               </button>
               <button className="w-full flex items-center gap-2 p-2 hover:bg-red-50 rounded transition text-left text-xs text-red-600 font-medium border-t border-gray-200 mt-2 pt-2">
                 <span>Rời nhóm</span>
-              </button>
+              </button> */}
             </div>
           </Accordion>
         </div>
@@ -982,39 +979,5 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
     </div>
   );
 };
-
-// Import missing icons
-const Eye = ({ size }: { size: number }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={2}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-    <circle cx="12" cy="12" r="3" />
-  </svg>
-);
-
-const AlertTriangle = ({ size }: { size: number }) => (
-  <svg
-    width={size}
-    height={size}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth={2}
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3.05h16.94a2 2 0 0 0 1.71-3.05L13.71 3.86a2 2 0 0 0-3.42 0z" />
-    <line x1="12" y1="9" x2="12" y2="13" />
-    <line x1="12" y1="17" x2="12.01" y2="17" />
-  </svg>
-);
 
 export default ConversationInfoSidebar;

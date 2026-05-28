@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import EditTeamScreen from './EditTeamScreen';
 import { 
   View, Text, StyleSheet, TouchableOpacity, 
@@ -6,12 +6,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { useLocalSearchParams } from 'expo-router';
 
 // IMPORT CÁC TAB
 import PostsTab from './tabs/PostsTab';
 import FilesTab from './tabs/FilesTab';
 import MembersTab from './tabs/MembersTab';
 import AssignmentsTab from './tabs/AssignmentsTab';
+import { useAuth } from '../auth/AuthProvider';
 
 interface TeamDetailScreenProps {
   team: { id: number, name: string, description?: string, isActive?: boolean };
@@ -20,12 +22,25 @@ interface TeamDetailScreenProps {
 
 export default function TeamDetailScreen({ team, onBack }: TeamDetailScreenProps) {
   const [activeTab, setActiveTab] = useState('Posts');
+  const params = useLocalSearchParams<{ assignmentId?: string }>();
+
+  // Auto-switch to Assignments tab if deep linked with assignmentId parameter
+  useEffect(() => {
+    if (params.assignmentId) {
+      setActiveTab('Assignments');
+    }
+  }, [params.assignmentId]);
   const [editVisible, setEditVisible] = useState(false);
   const [teamState, setTeamState] = useState({
     ...team,
     joinCode: (team as any).joinCode || '',
     departmentId: (team as any).departmentId || 1,
   });
+
+  const { user } = useAuth();
+  const isLeader = (team as any).members?.some(
+    (m: any) => m.accountId === user?.accountId && m.role === 'LEADER'
+  );
 
   // Hàm render nội dung tùy theo Tab
   // Hàm render nội dung tùy theo Tab
@@ -85,9 +100,11 @@ export default function TeamDetailScreen({ team, onBack }: TeamDetailScreenProps
           <TouchableOpacity style={{ marginRight: 15 }}>
             <Ionicons name="search-outline" size={22} color="#64748b" />
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setEditVisible(true)}>
-            <Ionicons name="create-outline" size={22} color="#64748b" />
-          </TouchableOpacity>
+          {isLeader && (
+            <TouchableOpacity onPress={() => setEditVisible(true)}>
+              <Ionicons name="create-outline" size={22} color="#64748b" />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
 
