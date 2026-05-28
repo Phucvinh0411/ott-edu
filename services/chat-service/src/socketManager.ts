@@ -176,7 +176,9 @@ class SocketManager {
     }
 
     const socketId = this.onlineUsers.get(userId);
+    console.log(`[DEBUG_EMIT] Emit '${eventName}' tới User: ${userId}. Tìm thấy socketId: ${socketId}`);
     if (!socketId) {
+      console.log(`[DEBUG_EMIT] ❌ Không tìm thấy socket của user ${userId} trong onlineUsers!`);
       return false;
     }
 

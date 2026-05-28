@@ -146,6 +146,51 @@ export class ChatService {
     return atIndex > 0 ? fallbackEmail.substring(0, atIndex) : fallbackEmail;
   }
 
+    // 🚀 THÊM HÀM NÀY VÀO TRONG CLASS ChatService
+ private static async fetchUserFromCore(keyword: any, token?: string) { 
+    try {
+      const CORE_API_URL = process.env.CORE_API_URL || "http://core-service:8080";
+      
+      // 🚀 BÍ KÍP TRỊ LỖI: Ép mọi thứ sang chuỗi an toàn
+      const safeKeyword = String(keyword || ""); 
+
+      const url = `${CORE_API_URL}/api/users/search?keyword=${encodeURIComponent(safeKeyword)}`;
+      
+      console.log(`[DEBUG_INSPECTOR] 🔍 Đang gọi API: ${url} với Token: ${token ? 'CÓ' : 'KHÔNG'}`);
+      
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = token;
+      }
+
+      const response = await fetch(url, { headers });
+      const rawData = await response.json();
+
+      if (!response.ok) {
+          console.error(`[DEBUG_INSPECTOR] Lỗi từ Core:`, rawData);
+          return null;
+      }
+
+      // In ra để xem cấu trúc thật
+      console.log(`[DEBUG_INSPECTOR] Dữ liệu từ Core:`, JSON.stringify(rawData, null, 2));
+
+      const users = Array.isArray(rawData) ? rawData : (rawData.data || rawData.content || []);
+      
+      // 🚀 So sánh an toàn bằng safeKeyword
+      const foundUser = users.find((u: any) => 
+          (u.id && u.id.toString() === safeKeyword) || 
+          (u.accountId && u.accountId.toString() === safeKeyword) ||
+          (u.email && u.email.toLowerCase() === safeKeyword.toLowerCase()) ||
+          (u.account && u.account.email && u.account.email.toLowerCase() === safeKeyword.toLowerCase())
+      );
+
+      return foundUser;
+    } catch (e) {
+      console.error("[DEBUG_INSPECTOR] Lỗi kết nối:", e);
+      return null;
+    }
+  }
+
   // Lấy danh sách hộp thoại của user hiện tại, có thể lọc theo type
   static async getConversations(userId: string, type?: string) {
     const query: any = {
@@ -468,22 +513,38 @@ export class ChatService {
     return { message, conversation };
   }
 
+
   // Tạo mới một nhóm lớp (Group Chat)
-  static async createGroupConversation(
+ static async createGroupConversation(
     creatorId: string,
     name: string,
     participants: string[],
     avatarUrl?: string,
     metadata?: any,
     joinPolicy: GroupJoinPolicy = "open",
+    token?: string
   ) {
-    const allParticipants = [...new Set([creatorId, ...participants])];
+    const resolvedParticipantIds: string[] = [];
+
+    // 🚀 Dùng hàm sync cho từng người trong mảng
+    for (const pId of participants) {
+      const user = await this.syncAndResolveUser(pId, undefined, token);
+      if (user) {
+        resolvedParticipantIds.push(user._id.toString());
+      } else {
+        const error = new Error(`Không thể đồng bộ người dùng ID ${pId} vào nhóm!`);
+        (error as any).statusCode = 400;
+        throw error;
+      }
+    }
+
+    const allParticipants = [...new Set([creatorId.toString(), ...resolvedParticipantIds])];
 
     const payload: any = {
       type: "class",
       name,
-      participants: allParticipants,
-      ownerId: creatorId,
+      participants: allParticipants.map(id => new mongoose.Types.ObjectId(id)),
+      ownerId: new mongoose.Types.ObjectId(creatorId),
       joinPolicy,
       pendingMemberRequests: [],
     };
@@ -493,7 +554,6 @@ export class ChatService {
 
     const savedConversation = await Conversation.create(payload);
 
-    // Phát sự kiện realtime cho tất cả thành viên nhóm mới
     for (const participantId of allParticipants) {
       socketManager.emitToUserTarget(
         participantId.toString(),
@@ -1281,31 +1341,71 @@ export class ChatService {
     return resolvedUserIds;
   }
 
-  // 1. TÌM KIẾM USER (Lấy từ bên Core MySQL sang)
-  static async searchUsers(keyword: string, currentUserId: string) {
+  // 1. TÌM KIẾM USER (Sửa lại URL gọi sang Core Service)
+  // 1. TÌM KIẾM USER (Đã nâng cấp: Tự động Sync để lấy ID chuẩn cho Mobile)
+  static async searchUsers(keyword: string, currentUserId: string, token?: string) {
     const safeKeyword = keyword ? keyword.trim() : "";
     try {
-      const CORE_API_URL = process.env.CORE_API_URL || "http://localhost:8080";
+      const CORE_API_URL = process.env.CORE_API_URL || "http://core-service:8080"; 
+      
+      const headers: Record<string, string> = {};
+      if (token) {
+        headers["Authorization"] = token;
+      }
+
+      console.log(`\n[DEBUG] Đang gọi sang Core: ${CORE_API_URL}/api/users/search?keyword=${encodeURIComponent(safeKeyword)}`);
+
       const response = await fetch(
-        `${CORE_API_URL}/api/users/search?keyword=${safeKeyword}`,
+        `${CORE_API_URL}/api/users/search?keyword=${encodeURIComponent(safeKeyword)}`,
+        { 
+          method: "GET",
+          headers: headers 
+        }
       );
+
       if (response.ok) {
         const coreData = await response.json();
-        // Giả sử API Core trả về: { data: [...] }
-        const usersFromCore = coreData.data || [];
+        const usersFromCore = Array.isArray(coreData) ? coreData : (coreData.data || coreData.content || []);
+        
+        console.log(`[DEBUG] Core Service đã trả về ${usersFromCore.length} kết quả! 🎉`);
+        
+        // 🚀 BÍ KÍP Ở ĐÂY: Tráo đổi ID số thành ObjectId chuẩn của Mongo
+        const resolvedUsers = [];
+        
+        for (const u of usersFromCore) {
+          // Bỏ qua nếu là chính mình
+          if (u.id?.toString() === currentUserId || u.accountId?.toString() === currentUserId) continue;
 
-        // Lọc bỏ chính mình ra khỏi danh sách
-        return usersFromCore.filter(
-          (u: any) =>
-            u.id?.toString() !== currentUserId &&
-            u._id?.toString() !== currentUserId,
-        );
+          // Dùng chính hàm xịn nãy giờ để sync nó vào Mongo ngay lập tức
+          const targetEmail = u.email || (u.account && u.account.email) || "";
+          const targetId = u.id?.toString() || u.accountId?.toString();
+          
+          const syncedUser = await this.syncAndResolveUser(targetId, targetEmail, token);
+          
+          if (syncedUser) {
+            // Trả về cho Mobile App cái Mongo _id chuẩn 24 ký tự
+            resolvedUsers.push({
+              id: syncedUser._id.toString(), // Đánh lừa Mobile App ở dòng này
+              _id: syncedUser._id.toString(),
+              fullName: syncedUser.fullName,
+              email: syncedUser.email,
+              avatarUrl: u.avatarUrl || syncedUser.avatarUrl,
+              code: u.code
+            });
+          }
+        }
+        
+        return resolvedUsers;
+
+      } else {
+        const errorText = await response.text();
+        console.error(`[ChatService] ❌ Core Service TỪ CHỐI! Mã lỗi: ${response.status}. Lý do: ${errorText}`);
       }
     } catch (error) {
-      console.error("[ChatService] Lỗi khi lấy data từ Core:", error);
+      console.error("[ChatService] ❌ Lỗi sập mạng khi gọi Core:", error);
     }
 
-    // 🔙 FALLBACK: Nếu API Core bị lỗi hoặc sập, tự động lấy tạm data từ MongoDB để app không bị chết
+    // 🔙 FALLBACK MONGODB
     console.log("Đang lấy tạm danh sách từ MongoDB...");
     const regex = new RegExp(keyword.trim(), "i");
     const users = await User.find({
@@ -1318,102 +1418,9 @@ export class ChatService {
 
     return users.map((u: any) => ({
       ...u,
-      id: u._id.toString(), // Trả về id cho Frontend dễ xử lý
+      id: u._id.toString(),
+      fullName: u.fullName || "Người dùng"
     }));
-  }
-
-  // 2. GỬI LỜI MỜI KẾT BẠN (Hỗ trợ Lazy Sync qua Email)
-  static async sendFriendRequest(
-    requesterId: string,
-    targetEmail?: string,
-    targetAccountId?: string,
-  ) {
-    let targetUser;
-
-    if (targetAccountId) {
-      targetUser = await User.findById(targetAccountId);
-    } else if (targetEmail) {
-      const normalizedEmail = targetEmail.trim().toLowerCase();
-      targetUser = await User.findOne({ email: normalizedEmail });
-
-      // Lazy Sync: Tạo profile ảo nếu user MySQL chưa từng vào Chat
-      if (!targetUser) {
-        targetUser = await User.create({
-          email: normalizedEmail,
-          fullName: targetEmail.split("@")[0] || "Người dùng",
-        });
-      }
-    }
-
-    if (!targetUser) {
-      const error = new Error("Không xác định được người nhận");
-      (error as any).statusCode = 400;
-      throw error;
-    }
-
-    const targetId = targetUser._id.toString();
-    if (requesterId.toString() === targetId) {
-      const error = new Error("Không thể tự kết bạn với chính mình");
-      (error as any).statusCode = 400;
-      throw error;
-    }
-
-    // 👇 1. CHỐT CHẶN: KIỂM TRA ĐÃ LÀ BẠN BÈ CHƯA (Xử lý an toàn ObjectId)
-    const userWithFriends = targetUser as typeof targetUser & {
-      friends?: any[];
-    };
-    const isAlreadyFriend =
-      userWithFriends.friends &&
-      userWithFriends.friends.some(
-        (friendId) => friendId.toString() === requesterId.toString(),
-      );
-
-    if (isAlreadyFriend) {
-      const error = new Error("Hai người đã là bạn bè rồi!");
-      (error as any).statusCode = 400;
-      throw error;
-    }
-
-    // Chỗ 2. KIỂM TRA MÌNH ĐÃ GỬI CHƯA
-    const existingReq = await FriendRequest.findOne({
-      requesterId: new mongoose.Types.ObjectId(requesterId),
-      recipientId: new mongoose.Types.ObjectId(targetId),
-      status: "pending",
-    } as any);
-
-    if (existingReq) {
-      const error = new Error(
-        "Đã gửi lời mời rồi, vui lòng chờ người kia xác nhận!",
-      );
-      (error as any).statusCode = 400;
-      throw error;
-    }
-
-    // Chỗ 3. KIỂM TRA NGƯỜI KIA CÓ ĐANG GỬI CHO MÌNH KHÔNG
-    const reverseReq = await FriendRequest.findOne({
-      requesterId: new mongoose.Types.ObjectId(targetId),
-      recipientId: new mongoose.Types.ObjectId(requesterId),
-      status: "pending",
-    } as any);
-
-    if (reverseReq) {
-      const error = new Error(
-        "Người này đã gửi lời mời cho bạn rồi, hãy kiểm tra danh sách lời mời nhé!",
-      );
-      (error as any).statusCode = 400;
-      throw error;
-    }
-
-    // Mọi thứ hoàn hảo thì lưu vào Database
-    const newRequest = await FriendRequest.create({
-      requesterId,
-      recipientId: targetId,
-    });
-    socketManager.emitToUserTarget(targetId, "friend_status_updated", {
-      userId: requesterId.toString(),
-      status: "pending",
-    });
-    return newRequest;
   }
 
   // 3. LẤY DANH SÁCH LỜI MỜI
@@ -1466,7 +1473,7 @@ export class ChatService {
         participants: [userId, requesterId],
       });
     }
-
+console.log(`[DEBUG_SOCKET] Emit 'friend_request_accepted' tới: ${userId} và ${requesterId}`);
     // ✨ PHÁT SỰ KIỆN REALTIME CHO 2 NGƯỜI HIỆN CHAT 1-1 NGAY LẬP TỨC
     socketManager.emitToUserTarget(
       userId.toString(),
@@ -1498,7 +1505,7 @@ export class ChatService {
       (error as any).statusCode = 404;
       throw error;
     }
-
+console.log(`[DEBUG_REJECT] User ${userId} từ chối ${requesterId} -> Emit 'friend_request_rejected'`);
     // ✨ PHÁT SỰ KIỆN ĐỂ UI 2 BÊN TỰ XÓA LỜI MỜI MÀ KHÔNG CẦN F5
     socketManager.emitToUserTarget(
       requesterId.toString(),
@@ -1594,5 +1601,119 @@ export class ChatService {
     );
 
     return { conversation, systemMessage };
+  }
+
+  // 🚀 THÊM HÀM NÀY VÀO TRONG CLASS ChatService (src/services/chat.service.ts)
+  static async sendFriendRequest(requesterId: string, targetEmail?: string, targetId?: string, token?: string) {
+    // 1. Đồng bộ người nhận (Dùng cái hàm sync xịn mà ông đã fix)
+    const targetUser = await this.syncAndResolveUser(targetId, targetEmail, token);
+    if (!targetUser) {
+        throw new Error("Không xác định được người nhận!");
+    }
+
+    const targetUserId = targetUser._id.toString();
+
+    // 2. Kiểm tra xem đã là bạn chưa (tùy logic của ông)
+    const requester = await User.findById(requesterId) as any;
+    if (requester?.friends?.includes(targetUserId as any)) {
+        throw new Error("Hai người đã là bạn bè rồi!");
+    }
+
+    // 3. Kiểm tra xem đã gửi lời mời chưa
+    const existingRequest = await (FriendRequest as any).findOne({
+        requesterId: requesterId,
+        recipientId: targetUserId,
+        status: "pending"
+    });
+    if (existingRequest) {
+        throw new Error("Lời mời kết bạn đã được gửi trước đó!");
+    }
+
+    // 4. Tạo lời mời kết bạn mới
+    const newRequest = await (FriendRequest as any).create({
+        requesterId: requesterId,
+        recipientId: targetUserId,
+        status: "pending",
+        createdAt: new Date()
+    });
+
+    console.log(`[DEBUG_SOCKET] Đang emit sự kiện 'new_friend_request' tới userID: ${targetUserId} (Type: ${typeof targetUserId})`);
+    // 5. Emit sự kiện cho người nhận biết có lời mời mới (Realtime)
+    socketManager.emitToUserTarget(targetUserId, "new_friend_request", {
+        requesterId: requesterId,
+        requestId: newRequest._id
+    });
+
+    return newRequest;
+  }
+ 
+  // 🚀 HÀM NÀY GIẢI QUYẾT TẤT CẢ: Dù là số hay chuỗi, nó trả về User trong Mongo
+ // 🚀 Thêm tham số token
+  private static async syncAndResolveUser(targetId?: string, targetEmail?: string, token?: string): Promise<any> {
+    console.log(`[DEBUG] Đang tìm User: ID=${targetId}, Email=${targetEmail}`);
+
+    // 1. TÌM TRONG MONGO TRƯỚC (Bản Fix lỗi NaN)
+    if (targetId) {
+       const orConditions: any[] = [];
+
+       // Nếu nó là 1 con số hợp lệ (ví dụ: "5")
+       if (!isNaN(Number(targetId))) {
+           orConditions.push({ id: Number(targetId) });
+       }
+
+       // Nếu nó là chuỗi 24 ký tự chuẩn của Mongo (ví dụ: "6a157f17bb...")
+       if (mongoose.Types.ObjectId.isValid(targetId)) {
+           orConditions.push({ _id: new mongoose.Types.ObjectId(targetId) });
+       }
+
+       // Nếu mảng có điều kiện thì mới search
+       if (orConditions.length > 0) {
+           const user = await User.findOne({ $or: orConditions });
+           if (user) return user;
+       }
+    }
+    
+    if (targetEmail) {
+       const user = await User.findOne({ email: targetEmail.toLowerCase() });
+       if (user) return user;
+    }
+
+    // 2. SYNC TỪ CORE SERVICE
+    const coreUser = await this.fetchUserFromCore(targetId || targetEmail || "", token);
+    
+    if (coreUser) {
+      const email = (coreUser.email || coreUser.account?.email || "").toLowerCase();
+      // Ưu tiên lấy ID từ Java trả về, nếu không có mới dùng targetId
+      const id = coreUser.id || coreUser.accountId; 
+      const fullName = coreUser.fullName || (coreUser.firstName ? `${coreUser.firstName} ${coreUser.lastName}` : "Người dùng");
+
+      if (!email) {
+          console.error(`[SyncError] Core Service trả về user nhưng thiếu EMAIL!`);
+          return null;
+      }
+
+      // 🚀 BÍ KÍP CHỐNG LỖI E11000
+      let existingUser = await User.findOne({ email: email });
+      if (existingUser) {
+          console.log(`[DEBUG] User ${email} đã có trong Mongo, cập nhật lại ID...`);
+          // Cập nhật ID từ Java cho nó chuẩn (Chỉ cập nhật nếu id là số)
+          if (id && !isNaN(Number(id)) && (existingUser as any).id !== Number(id)) {
+              (existingUser as any).id = Number(id);
+              await existingUser.save();
+          }
+          return existingUser;
+      }
+
+      console.log(`[DEBUG] Đang tạo mới user vào Mongo: ${email}`);
+      const newUser = await User.create({
+        id: id && !isNaN(Number(id)) ? Number(id) : undefined, // Đảm bảo không bao giờ lưu NaN vào DB
+        email: email,
+        fullName: fullName,
+      } as any);
+      
+      return newUser;
+    }
+    
+    return null;
   }
 }

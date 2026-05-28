@@ -28,7 +28,7 @@ function getChatServiceUrl(): string {
  * useSocket Hook - Manages Socket.io connection for real-time updates
  * Returns a singleton socket instance that persists across component mounts
  */
-export function useSocket(): Socket | null {
+export function useSocket(userId?: string): Socket | null {
   const [socket, setSocket] = useState<Socket | null>(globalSocket);
 
   useEffect(() => {
@@ -63,7 +63,7 @@ export function useSocket(): Socket | null {
     }, 0);
 
     return () => clearTimeout(timer);
-  }, []);
+  }, [userId]);
 
   return socket;
 }

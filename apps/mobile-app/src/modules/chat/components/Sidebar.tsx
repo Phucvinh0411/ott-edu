@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View, Text, TextInput, ScrollView, ActivityIndicator,
   TouchableOpacity, Image, StyleSheet,
-  DeviceEventEmitter, // 🚀 THÊM CÁI LOA PHÓNG THANH NÀY VÀO
+  DeviceEventEmitter, 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router'; 
@@ -10,6 +10,8 @@ import { ChatMode, Conversation, User } from '../types';
 import { ConversationItem } from './ConversationItem';
 import { useAuth } from '../../auth/AuthProvider'; 
 import { fetchFriendRequests } from '../../friends/friends.api'; 
+// 🚀 IMPORT VŨ KHÍ TÌM KIẾM VÀO ĐÂY
+import { useUserSearch } from '../../../shared/hooks/useUserSearch'; 
 
 interface SidebarProps {
   currentMode: ChatMode;
@@ -17,24 +19,25 @@ interface SidebarProps {
   searchQuery: string;
   onSearchQueryChange: (query: string) => void;
   conversations: Conversation[];
-  suggestedUsers: User[];
+  suggestedUsers: User[]; // Giữ nguyên prop này để không lỗi Component cha, nhưng mình sẽ xài data từ Hook
   currentUser: User | null;
   currentUserId?: string;
   activeConversationId: string | null;
   onSelectConversation: (id: string) => void;
-  onStartPrivateChat: (user: User) => void;
+  onStartPrivateChat: (user: any) => void; // Cho phép nhận any để tương thích với ApiUser
   isLoading: boolean;
   error: string | null;
+  socket: any;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   currentMode, onModeChange, searchQuery, onSearchQueryChange,
-  conversations, suggestedUsers, currentUser, currentUserId, activeConversationId,
-  onSelectConversation, onStartPrivateChat, isLoading, error,
+  conversations, currentUser, currentUserId, activeConversationId,
+  onSelectConversation, onStartPrivateChat, isLoading, error, socket, 
 }) => {
   const router = useRouter(); 
 
-  // 👇 --- BẮT ĐẦU LOGIC REALTIME CHO CHẤM ĐỎ KẾT BẠN BẰNG LOA NỘI BỘ --- 👇
+  // 👇 --- LOGIC REALTIME CHO CHẤM ĐỎ (SỬA LẠI ĐÚNG CẤU TRÚC) --- 👇
   const { user } = useAuth();
   const [pendingCount, setPendingCount] = useState(0);
 
@@ -47,35 +50,66 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
   }, [user]);
 
-  // 🚀 ĐÃ XÓA DÒNG `useSocket` Ở ĐÂY ĐỂ TRÁNH XUNG ĐỘT KẾT NỐI
-
-  useEffect(() => {
+  // 1. Hàm này lấy dữ liệu từ API - Phải nằm độc lập để gọi được ở mọi nơi
+  const loadPendingCount = useCallback(async () => {
     if (!identity) return;
+    try {
+      const reqs = await fetchFriendRequests(identity);
+      setPendingCount(reqs?.length || 0);
+    } catch (err) {
+      console.error("Lỗi tải lời mời:", err);
+    }
+  }, [identity]);
 
-    // Hàm gọi ngầm API để đếm số lượng lời mời
-    const loadPendingCount = async () => {
-      try {
-        const reqs = await fetchFriendRequests(identity);
-        setPendingCount(reqs?.length || 0);
-      } catch (err) {
-        // Lỗi thì im lặng bỏ qua để UI không bị sượng
-      }
+  // 2. Chạy lần đầu khi mount
+  useEffect(() => {
+    loadPendingCount();
+  }, [loadPendingCount]);
+
+  // 3. Lắng nghe Socket (Cái này mới quan trọng để realtime)
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleUpdate = (data: any) => {
+      console.log("🔥 [Socket Sidebar] Nhận tín hiệu, cập nhật chấm đỏ...", data);
+      loadPendingCount();
     };
 
-    loadPendingCount(); // Tải lần đầu tiên
-
-    // 🚀 LẮNG NGHE TIẾNG LOA TỪ TRẠM CHÍNH (ChatLayout) PHÁT RA
-    const subscription = DeviceEventEmitter.addListener('SYNC_FRIENDS_DATA', () => {
-      console.log("🔴 [Chấm Đỏ - Sidebar] Nghe tiếng loa, đang lấy lại số lượng lời mời...");
-      loadPendingCount();
-    });
+    socket.on("new_friend_request", handleUpdate);
+    socket.on("friend_request_accepted", handleUpdate);
+    socket.on("friend_request_rejected", handleUpdate);
 
     return () => {
-      // Tắt loa khi chuyển màn hình khác
-      subscription.remove(); 
+      socket.off("new_friend_request", handleUpdate);
+      socket.off("friend_request_accepted", handleUpdate);
+      socket.off("friend_request_rejected", handleUpdate);
     };
-  }, [identity]);
+  }, [socket, loadPendingCount]);
+
+  // 4. Lắng nghe event nội bộ (giữ nguyên)
+  useEffect(() => {
+    const subscription = DeviceEventEmitter.addListener('SYNC_FRIENDS_DATA', () => {
+      loadPendingCount();
+    });
+    return () => subscription.remove();
+  }, [loadPendingCount]);
   // 👆 --- KẾT THÚC LOGIC CHẤM ĐỎ --- 👆
+
+  // 🚀 --- TÍCH HỢP HOOK TÌM KIẾM --- 🚀
+  // Gọi hook ra, chỉ kích hoạt khi đang ở tab 'private' để đỡ tốn API
+  const { setKeyword, users: apiUsers, isLoading: isSearchingApi } = useUserSearch(identity, currentMode === 'private');
+
+  // Hàm xử lý khi gõ phím: Vừa cập nhật UI cha, vừa kích hoạt Hook tìm người mới
+  const handleSearchInput = (text: string) => {
+    onSearchQueryChange(text); // Lọc danh sách chat có sẵn
+    setKeyword(text);          // Đưa vào Hook chờ Debounce 0.5s rồi gọi API
+  };
+
+  const handleClearSearch = () => {
+    onSearchQueryChange('');
+    setKeyword('');
+  };
+  // 🚀 --- KẾT THÚC LOGIC TÌM KIẾM --- 🚀
 
   const filtered = conversations.filter((c) => {
     if (c.type !== currentMode) return false;
@@ -89,7 +123,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   return (
     <View style={styles.container}>
-      {/* ── Header MỚI ── */}
+      {/* ── Header ── */}
       <View style={styles.header}>
         <View>
           <Text style={styles.title}>Tin nhắn</Text>
@@ -98,18 +132,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           )}
         </View>
 
-        {/* 🎯 CỤM NÚT ĐIỀU HƯỚNG */}
         <View style={styles.headerActions}>
-          
-          {/* 🚀 NÚT KẾT BẠN ĐÃ ĐƯỢC ĐỘ CHẤM ĐỎ */}
           <TouchableOpacity 
             style={[styles.actionBtn, { backgroundColor: '#10B981' }]}
             onPress={() => router.push('/(dashboard)/friends')}
           >
             <View style={{ position: 'relative' }}>
               <Ionicons name="person-add" size={18} color="#FFFFFF" style={{ marginLeft: 2 }} />
-              
-              {/* Nếu có lời mời thì hiện Badge lên */}
               {pendingCount > 0 && (
                 <View style={styles.badgeContainer}>
                   <Text style={styles.badgeText}>
@@ -120,7 +149,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </View>
           </TouchableOpacity>
 
-          {/* Nút Tạo Nhóm */}
           <TouchableOpacity 
             style={[styles.actionBtn, { backgroundColor: '#2563EB' }]}
             onPress={() => router.push('/(dashboard)/create-group')}
@@ -136,13 +164,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <Ionicons name="search" size={16} color="#94A3B8" />
           <TextInput
             style={styles.searchInput}
-            placeholder="Tìm kiếm..."
+            placeholder="Tìm kiếm hoặc kết nối người mới..."
             placeholderTextColor="#94A3B8"
             value={searchQuery}
-            onChangeText={onSearchQueryChange}
+            onChangeText={handleSearchInput} // 👈 Đã gắn hàm xịn vào đây
+            autoCapitalize="none"
           />
           {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => onSearchQueryChange('')}>
+            <TouchableOpacity onPress={handleClearSearch}>
               <Ionicons name="close-circle" size={16} color="#94A3B8" />
             </TouchableOpacity>
           )}
@@ -194,32 +223,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </View>
         ) : (
           <>
-            {/* Suggested users */}
-            {searchQuery.length > 0 && suggestedUsers.length > 0 && currentMode === 'private' && (
-              <View style={styles.section}>
-                <Text style={styles.sectionLabel}>LIÊN HỆ GỢI Ý</Text>
-                {suggestedUsers.map((u) => (
-                  <TouchableOpacity
-                    key={u.id}
-                    style={styles.suggestRow}
-                    onPress={() => onStartPrivateChat(u)}
-                    activeOpacity={0.7}
-                  >
-                    <Image
-                      source={{ uri: u.avatarUrl || `https://i.pravatar.cc/150?u=${u.id}` }}
-                      style={styles.suggestAvatar}
-                    />
-                    <View style={styles.suggestInfo}>
-                      <Text style={styles.suggestName}>{u.name}</Text>
-                      {u.code && <Text style={styles.suggestCode}>{u.code}</Text>}
-                    </View>
-                    <Ionicons name="chevron-forward" size={16} color="#CBD5E1" />
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
-
-            {/* Conversation list */}
+            
+            {/* Conversation list (Danh sách chat cũ) */}
             {filtered.length === 0 ? (
               <View style={styles.emptyState}>
                 <View style={styles.emptyIconWrap}>
@@ -259,6 +264,44 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 ))}
               </>
             )}
+
+            {/* 🚀 DANH SÁCH GỢI Ý / KẾT QUẢ TÌM KIẾM TỪ API */}
+            {currentMode === 'private' && (apiUsers.length > 0 || isSearchingApi) && (
+              <View style={styles.section}>
+                <Text style={styles.sectionLabel}>
+                  {searchQuery.length > 0 ? 'TÌM KIẾM NGƯỜI DÙNG MỚI' : 'GỢI Ý KẾT NỐI'}
+                </Text>
+                
+                {isSearchingApi ? (
+                  <ActivityIndicator size="small" color="#3B82F6" style={{ marginVertical: 10 }} />
+                ) : (
+                  apiUsers
+                    .filter((u) => (u.id || u._id) !== identity?.id) // Lọc bỏ chính mình
+                    .map((u) => (
+                      <TouchableOpacity
+                        key={u.id || u._id}
+                        style={styles.suggestRow}
+                        onPress={() => onStartPrivateChat(u)} // Bấm vào là chat luôn
+                        activeOpacity={0.7}
+                      >
+                        <Image
+                          source={{ uri: u.avatarUrl || `https://ui-avatars.com/api/?name=${u.fullName || u.name}` }}
+                          style={styles.suggestAvatar}
+                        />
+                        <View style={styles.suggestInfo}>
+                          <Text style={styles.suggestName}>{u.fullName || u.name}</Text>
+                          {(u.code || u.email) && (
+                            <Text style={styles.suggestCode}>{u.code || u.email}</Text>
+                          )}
+                        </View>
+                        {/* Đổi icon thành icon chat cho hợp logic */}
+                        <Ionicons name="chatbubble-ellipses" size={18} color="#3B82F6" />
+                      </TouchableOpacity>
+                    ))
+                )}
+              </View>
+            )}
+
           </>
         )}
       </ScrollView>
@@ -266,6 +309,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   );
 };
 
+// 🎨 CÁC STYLE CỦA ÔNG TUI GIỮ NGUYÊN 100%
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF' },
 
@@ -308,7 +352,6 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   
-  // 🚀 CSS CHO CÁI CHẤM ĐỎ BADGE NÈ LÃO ĐẠI
   badgeContainer: {
     position: 'absolute',
     top: -8,
@@ -321,7 +364,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 4,
     borderWidth: 2,
-    borderColor: '#10B981', // Viền cùng màu với nút để tạo hiệu ứng "khoét lỗ" siêu đẹp
+    borderColor: '#10B981', 
   },
   badgeText: {
     color: '#ffffff',

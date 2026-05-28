@@ -1,10 +1,6 @@
 package fit.iuh.modules.auth.dtos.auth;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
-
+import lombok.*;
 import java.util.List;
 
 @Data
@@ -12,6 +8,12 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AuthUserResponse {
+
+    // Thêm các trường này để mapping
+    private Long id;
+    private String fullName;
+
+    // Các trường cũ
     private Long accountId;
     private String email;
     private String status;

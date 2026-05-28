@@ -34,7 +34,8 @@ import Image from "next/image";
 import { Socket } from "socket.io-client";
 import ConversationInfoSidebar from "@/shared/components/ConversationInfoSidebar";
 import { AddMemberModal } from "./AddMemberModal";
-import { requestOrAddGroupMember, sendFriendRequestApi } from "../chatApi";
+
+import { requestOrAddGroupMember, sendFriendRequestApi, searchUsersApi } from "../chatApi";
 import { VideoCallOverlay } from "./VideoCallOverlay";
 
 interface ChatWindowProps {
@@ -144,6 +145,27 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
   };
 
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+  
+  // 🚀 THÊM STATE ĐỂ LƯU GỢI Ý NGƯỜI DÙNG
+  const [suggestedUsers, setSuggestedUsers] = useState<User[]>([]);
+
+  // 🚀 GỌI API LẤY GỢI Ý MỖI KHI MỞ MODAL THÊM THÀNH VIÊN
+  useEffect(() => {
+    if (isAddMemberOpen) {
+      const fetchSuggestions = async () => {
+        try {
+          const res = await searchUsersApi("") as { data: User[] };
+          setSuggestedUsers(res.data || []);
+        } catch (error) {
+          console.error("Lỗi tải danh sách gợi ý:", error);
+        }
+      };
+      fetchSuggestions();
+    } else {
+      // Dọn dẹp data khi đóng modal cho nhẹ bộ nhớ
+      setSuggestedUsers([]);
+    }
+  }, [isAddMemberOpen]);
 
   const handleAddMember = async (email: string) => {
     if (conversation) {
@@ -151,6 +173,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
       alert("Đã gửi lời mời / Thêm thành viên thành công!");
     }
   };
+  
   const [friendStatus, setFriendStatus] = useState<
     "none" | "pending" | "friend"
   >("none");
@@ -539,24 +562,36 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
     );
   }
 
-  // Header display logic
-  let displayName = conversation.name;
-  let displayAvatar = conversation.avatarUrl;
-  let subStatus =
-    conversation.type === "class"
-      ? `${conversation.participants.length} thành viên`
-      : "Đang hoạt động";
+ // Header display logic
+ let displayName = conversation.name || "Người dùng";
+let displayAvatar = conversation.avatarUrl;
 
-  if (conversation.type === "private" && currentUser) {
-    const otherParticipant = conversation.participants.find(
-      (p) => p.id !== currentUser.id,
-    );
-    if (otherParticipant) {
-      displayName = otherParticipant.name;
-      displayAvatar = otherParticipant.avatarUrl;
-      subStatus = otherParticipant.isOnline ? "Đang hoạt động" : "Ngoại tuyến";
-    }
+// Logic hiển thị subStatus (Bây giờ TypeScript sẽ không báo lỗi nữa vì đã thêm "group" vào ChatMode)
+let subStatus = (conversation.type === "class" || conversation.type === "group")
+  ? `${conversation.participants?.length || 0} thành viên`
+  : "Đang hoạt động";
+
+if (conversation.type === "private" && currentUser) {
+  // Dùng intersection type để ép kiểu an toàn cho currentUser
+  const self = currentUser as User & { _id?: string };
+  const selfId = self.id || self._id;
+
+  // Tìm đối phương bằng cách quét chéo cả id và _id
+  const otherParticipant = conversation.participants.find((p) => {
+    const pId = p.id || (p as User & { _id?: string })._id;
+    return pId !== selfId;
+  });
+
+  if (otherParticipant) {
+    // Ép kiểu cụ thể cho peer để truy cập các thuộc tính lạ
+    const peer = otherParticipant as User & { fullName?: string; isOnline?: boolean };
+    
+    // Logic lấy tên an toàn
+    displayName = peer.fullName || peer.name || (peer.email ? peer.email.split('@')[0] : "Người dùng");
+    displayAvatar = peer.avatarUrl || `https://i.pravatar.cc/150?u=${peer.email}`;
+    subStatus = peer.isOnline ? "● Đang hoạt động" : "Ngoại tuyến";
   }
+}
 
   const getSender = (senderId: string) =>
     conversation.participants.find((p) => p.id === senderId);
@@ -684,7 +719,7 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
                     // Gửi thành công thì chuyển sang pending
                     setFriendStatus("pending");
                     alert(
-                      `Đã gửi lời mời kết bạn đến ${otherParticipant.name}! 🚀`,
+                      `Đã gửi lời mời kết bạn đến ${displayName}! Hãy chờ họ chấp nhận nhé!`,
                     );
                   } catch (error) {
                     console.error("Lỗi gửi kết bạn:", error);
@@ -915,7 +950,8 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
         isOpen={isAddMemberOpen}
         onClose={() => setIsAddMemberOpen(false)}
         onAddMember={handleAddMember}
-        existingMemberIds={conversation.participants.map((p) => p.id)}
+        existingMemberIds={conversation.participants.flatMap((p) => [p.id, (p as User & { _id?: string })._id, p.email]).filter(Boolean) as string[]}
+        suggestedUsers={suggestedUsers} // 🚀 Đã truyền dữ liệu gợi ý vào đây
       />
     </div>
   );

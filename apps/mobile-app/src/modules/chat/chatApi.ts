@@ -27,14 +27,18 @@ import {
 export function mapApiUserToUser(apiUser: ApiUser): User {
   return {
     id: apiUser._id,
-    name: apiUser.fullName,
+    _id: apiUser._id,
+    // Fix lỗi: name sẽ lấy name (nếu có), không thì fullName, không thì "Người dùng"
+    name: apiUser.name || apiUser.fullName || "Người dùng", 
+    fullName: apiUser.fullName,
     email: apiUser.email,
     code: apiUser.code,
+    role: apiUser.role || 'USER', // Gán default nếu không có role
     avatarUrl: apiUser.avatarUrl || `https://i.pravatar.cc/150?u=${apiUser._id}`,
-    isOnline: false,
+    isOnline: !!apiUser.isOnline, // Ép về boolean chắc chắn
+    friendStatus: apiUser.friendStatus || 'none'
   };
 }
-
 type ChatAuthIdentity = { email: string; code?: string };
 
 export function mapApiMessageToMessage(apiMsg: ApiMessage): Message {

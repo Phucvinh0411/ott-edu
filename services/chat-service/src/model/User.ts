@@ -1,6 +1,7 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IUser extends Document {
+  id?: number; // 🚀 1. THÊM DÒNG NÀY ĐỂ HẾT GẠCH ĐỎ TYPESCRIPT
   email: string;
   fullName: string;
   code?: string;
@@ -10,11 +11,17 @@ export interface IUser extends Document {
 
 const userSchema: Schema = new Schema(
   {
+    // 🚀 2. THÊM CỘT ID NÀY VÀO ĐỂ LƯU SỐ 2, SỐ 6 CỦA MYSQL
+    id: {
+      type: Number,
+      index: true,
+      unique: true,
+      sparse: true // ⚠️ BẮT BUỘC CÓ: Để những user cũ (không có id) không bị lỗi Duplicate E11000
+    },
     email: {
       type: String,
       required: true,
       unique: true,
-      // Cho phép các địa chỉ email hợp lệ phổ biến, gồm cả dấu + và TLD dài
       match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Email không hợp lệ']
     },
     fullName: {
@@ -33,16 +40,15 @@ const userSchema: Schema = new Schema(
     },
     avatarUrl: {
       type: String,
-      default: 'https://via.placeholder.com/150' // Link ảnh placeholder mặc định
+      default: 'https://via.placeholder.com/150'
     },
     friends: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
   },
   {
-    timestamps: true // Tự động sinh `createdAt` và `updatedAt`
+    timestamps: true
   }
 );
 
-// Tạo index cho email để query nhanh hơn
 userSchema.index({ email: 1 });
 
 const User = mongoose.model<IUser>('User', userSchema);

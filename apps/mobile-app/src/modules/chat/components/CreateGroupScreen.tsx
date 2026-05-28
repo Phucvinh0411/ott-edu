@@ -12,7 +12,6 @@ import {
 import { useRouter } from "expo-router"; // 🚀 Dùng Expo Router
 import { createGroupConversation } from "../group.api";
 import { searchUsers } from "../../friends/friends.api"; // 🚀 Đổi sang searchUsers giống Web
-// import { useSocket } from "../../../shared/hooks/useSocket";
 
 // 🚀 Nhận identity từ Props (Lấy từ AuthContext của ông ra nhé)
 export default function CreateGroupScreen({ identity }: any) {
@@ -28,28 +27,28 @@ export default function CreateGroupScreen({ identity }: any) {
   const [friends, setFriends] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [keyword, setKeyword] = useState(''); // 🚀 Thêm state lưu từ khóa tìm kiếm
 
-  // 🔌 Khởi tạo socket với identity thật
-//  const socket = useSocket(identity.id, identity.email);
-
+  // 🔍 Tự động gọi API tìm kiếm khi gõ phím (Có Debounce 500ms chống lag)
   useEffect(() => {
-    if (identity) {
-      loadSuggestedUsers();
-    }
-  }, [identity]);
+    if (!identity) return;
 
-  // 🔍 Lấy danh sách gợi ý (search rỗng giống Web)
-  const loadSuggestedUsers = async () => {
-    try {
+    const delayDebounceFn = setTimeout(() => {
       setIsLoading(true);
-      const res = await searchUsers(identity, "");
-      setFriends(res || []);
-    } catch (error: any) {
-      console.error("Lỗi lấy danh sách gợi ý:", error.message);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+      searchUsers(identity, keyword.trim())
+        .then((res: any) => {
+          setFriends(res || []);
+        })
+        .catch(err => {
+          console.error("❌ Lỗi lấy danh sách:", err.message);
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    }, 500); // Dừng gõ 0.5s mới gọi API
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [keyword, identity]);
 
   const toggleSelect = (id: string) => {
     setSelectedIds((prev) =>
@@ -64,7 +63,6 @@ export default function CreateGroupScreen({ identity }: any) {
 
     try {
       // 🕵️‍♂️ Lọc lại ID: Chỉ lấy những ID có độ dài của MongoDB (24 ký tự)
-      // Nếu ID nào ngắn quá thì mình biết đó là ID MySQL, không gửi lên.
       const validParticipants = selectedIds.filter(id => id.length === 24);
       
       if (validParticipants.length === 0) {
@@ -73,7 +71,7 @@ export default function CreateGroupScreen({ identity }: any) {
 
       console.log("🚀 Đang gửi yêu cầu tạo nhóm với:", { name: groupName, participants: validParticipants });
 
-      const res = await createGroupConversation(identity, {
+      await createGroupConversation(identity, {
         name: groupName,
         participants: validParticipants, // 👈 Dùng đúng tên participants
       } as any);
@@ -82,11 +80,11 @@ export default function CreateGroupScreen({ identity }: any) {
       router.replace('/chat');
       
     } catch (error: any) {
-      // 💡 Tip: Log chi tiết lỗi từ server trả về để biết nó chê chỗ nào
       console.error("❌ Chi tiết lỗi 400:", error.response?.data);
       Alert.alert("Lỗi", error.message || "Không thể tạo nhóm");
     }
   };
+
   return (
     <View style={styles.container}>
       {/* Input tên nhóm */}
@@ -101,8 +99,21 @@ export default function CreateGroupScreen({ identity }: any) {
         />
       </View>
 
+      {/* 🚀 Thêm Input tìm kiếm bạn bè */}
+      <View style={styles.inputSection}>
+        <Text style={styles.label}>Thêm thành viên</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="🔍 Tìm bạn bè, email, MSSV..."
+          placeholderTextColor="#94A3B8"
+          value={keyword}
+          onChangeText={setKeyword}
+          autoCapitalize="none"
+        />
+      </View>
+
       <Text style={styles.subtitle}>
-        Chọn thành viên ({selectedIds.length})
+        {keyword.length > 0 ? "Kết quả tìm kiếm" : "Gợi ý bạn bè"} ({selectedIds.length} đã chọn)
       </Text>
 
       {isLoading ? (
@@ -118,10 +129,11 @@ export default function CreateGroupScreen({ identity }: any) {
               <TouchableOpacity
                 style={[styles.friendItem, isSelected && styles.friendItemActive]}
                 onPress={() => toggleSelect(id)}
+                activeOpacity={0.7}
               >
                 <View>
                   <Text style={styles.friendName}>{item.fullName}</Text>
-                  <Text style={styles.friendEmail}>{item.email}</Text>
+                  <Text style={styles.friendEmail}>{item.code} - {item.email}</Text>
                 </View>
                 <View
                   style={[styles.checkbox, isSelected && styles.checkboxActive]}
@@ -129,8 +141,9 @@ export default function CreateGroupScreen({ identity }: any) {
               </TouchableOpacity>
             );
           }}
+          showsVerticalScrollIndicator={false}
           ListEmptyComponent={
-            <Text style={styles.emptyTxt}>Không tìm thấy bạn bè để thêm</Text>
+            <Text style={styles.emptyTxt}>Không tìm thấy bạn bè phù hợp</Text>
           }
         />
       )}
@@ -147,9 +160,10 @@ export default function CreateGroupScreen({ identity }: any) {
   );
 }
 
+// 🎨 Styles giữ nguyên của ông, chỉ tinh chỉnh nhẹ để hiện MSSV
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, backgroundColor: "#F8FAFC" },
-  inputSection: { marginBottom: 20 },
+  inputSection: { marginBottom: 15 },
   label: { fontSize: 14, color: "#64748B", marginBottom: 8, fontWeight: "600" },
   input: {
     backgroundColor: "#fff",
@@ -160,7 +174,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#1E293B",
   },
-  subtitle: { fontSize: 16, fontWeight: "bold", marginBottom: 12, color: "#1E293B" },
+  subtitle: { fontSize: 14, fontWeight: "bold", marginBottom: 12, color: "#1E293B" },
   friendItem: {
     flexDirection: "row",
     justifyContent: "space-between",

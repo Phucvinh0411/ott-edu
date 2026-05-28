@@ -18,9 +18,10 @@ export class ChatController {
         return res.status(401).json({ error: "Unauthorized access" });
       }
 
-      const conversationId = typeof req.query.conversationId === "string"
-        ? req.query.conversationId.trim()
-        : "";
+      const conversationId =
+        typeof req.query.conversationId === "string"
+          ? req.query.conversationId.trim()
+          : "";
       const limitRaw = Number(req.query.limit);
       const limit = Number.isFinite(limitRaw)
         ? Math.min(Math.max(Math.floor(limitRaw), 1), 100)
@@ -31,9 +32,10 @@ export class ChatController {
         : 1;
       const skip = (page - 1) * limit;
 
-      const statusRaw = typeof req.query.status === "string"
-        ? req.query.status.trim().toLowerCase()
-        : "";
+      const statusRaw =
+        typeof req.query.status === "string"
+          ? req.query.status.trim().toLowerCase()
+          : "";
       const allowedStatuses = new Set([
         "ringing",
         "connected",
@@ -46,16 +48,45 @@ export class ChatController {
         ? statusRaw
             .split(",")
             .map((value) => value.trim())
-            .filter((value): value is "ringing" | "connected" | "ended" | "declined" | "unavailable" | "failed" =>
-              allowedStatuses.has(value as "ringing" | "connected" | "ended" | "declined" | "unavailable" | "failed"),
+            .filter(
+              (
+                value,
+              ): value is
+                | "ringing"
+                | "connected"
+                | "ended"
+                | "declined"
+                | "unavailable"
+                | "failed" =>
+                allowedStatuses.has(
+                  value as
+                    | "ringing"
+                    | "connected"
+                    | "ended"
+                    | "declined"
+                    | "unavailable"
+                    | "failed",
+                ),
             )
         : [];
 
       const userObjectId = new mongoose.Types.ObjectId(userId);
       const query: {
-        $or?: Array<{ callerId: mongoose.Types.ObjectId } | { calleeId: mongoose.Types.ObjectId }>;
+        $or?: Array<
+          | { callerId: mongoose.Types.ObjectId }
+          | { calleeId: mongoose.Types.ObjectId }
+        >;
         conversationId?: mongoose.Types.ObjectId;
-        status?: { $in: Array<"ringing" | "connected" | "ended" | "declined" | "unavailable" | "failed"> };
+        status?: {
+          $in: Array<
+            | "ringing"
+            | "connected"
+            | "ended"
+            | "declined"
+            | "unavailable"
+            | "failed"
+          >;
+        };
       } = {
         $or: [{ callerId: userObjectId }, { calleeId: userObjectId }],
       };
@@ -173,7 +204,10 @@ export class ChatController {
         return res.status(401).json({ error: "Unauthorized access" });
       }
 
-      const data = await ChatService.getConversationRole(userId, conversationId);
+      const data = await ChatService.getConversationRole(
+        userId,
+        conversationId,
+      );
       return res.status(200).json({ data });
     } catch (error: any) {
       console.error("[ChatController] getConversationRole error:", error);
@@ -187,12 +221,16 @@ export class ChatController {
   static async setGroupDeputy(req: Request, res: Response) {
     try {
       const requesterId = (req as any).user?._id;
-      const conversationId = typeof req.params.conversationId === "string" ? req.params.conversationId : "";
-      const deputyId = typeof req.body?.deputyId === "string"
-        ? req.body.deputyId
-        : req.body?.deputyId === null
-          ? null
-          : undefined;
+      const conversationId =
+        typeof req.params.conversationId === "string"
+          ? req.params.conversationId
+          : "";
+      const deputyId =
+        typeof req.body?.deputyId === "string"
+          ? req.body.deputyId
+          : req.body?.deputyId === null
+            ? null
+            : undefined;
 
       if (!requesterId) {
         return res.status(401).json({ error: "Unauthorized access" });
@@ -227,7 +265,10 @@ export class ChatController {
         return res.status(400).json({ error: "Missing conversationId param" });
       }
 
-      const messages = await ChatService.getMessages(conversationId, requestingUserId);
+      const messages = await ChatService.getMessages(
+        conversationId,
+        requestingUserId,
+      );
       return res.status(200).json({ data: messages });
     } catch (error: any) {
       console.error("[ChatController] getMessagesInConversation error:", error);
@@ -248,11 +289,9 @@ export class ChatController {
       }
 
       if (!fileName || !fileType) {
-        return res
-          .status(400)
-          .json({
-            error: "fileName and fileType query parameters are required",
-          });
+        return res.status(400).json({
+          error: "fileName and fileType query parameters are required",
+        });
       }
 
       // Validate file type
@@ -283,12 +322,10 @@ export class ChatController {
       return res.status(200).json({ data: JSON.parse(urlData) });
     } catch (error: any) {
       console.error("[ChatController] getPresignedUploadUrl error:", error);
-      return res
-        .status(500)
-        .json({
-          error: "Failed to generate upload URL",
-          detail: error.message,
-        });
+      return res.status(500).json({
+        error: "Failed to generate upload URL",
+        detail: error.message,
+      });
     }
   }
 
@@ -306,7 +343,9 @@ export class ChatController {
       if (!fileName || !fileType) {
         return res
           .status(400)
-          .json({ error: "fileName and fileType query parameters are required" });
+          .json({
+            error: "fileName and fileType query parameters are required",
+          });
       }
 
       if (!Buffer.isBuffer(fileBuffer) || fileBuffer.length === 0) {
@@ -365,8 +404,14 @@ export class ChatController {
     try {
       const senderId = (req as any).user?._id;
       // Dựa vào việc body gửi lên receiverId (private) hay conversationId (group)
-      const { receiverId, conversationId, content, attachments, replyTo, isForwarded } =
-        req.body;
+      const {
+        receiverId,
+        conversationId,
+        content,
+        attachments,
+        replyTo,
+        isForwarded,
+      } = req.body;
       const normalizedContent =
         typeof content === "string" ? content.trim() : "";
       const hasAttachments =
@@ -418,7 +463,7 @@ export class ChatController {
       // Nếu là tin nhắn 1-1 (private), cũng emit trực tiếp cho receiverId để chắc chắn họ nhận được
       // ngay cả khi chưa join room
       if (receiverId) {
-        socketManager.emitToUserTarget(receiverId, 'newMessage', message);
+        socketManager.emitToUserTarget(receiverId, "newMessage", message);
       }
 
       return res.status(201).json({ data: message });
@@ -435,17 +480,19 @@ export class ChatController {
     try {
       const creatorId = (req as any).user?._id;
       const { name, participants, avatarUrl, metadata, joinPolicy } = req.body;
+      
+      // 🚀 LẤY TOKEN Ở ĐÂY
+      const token = req.headers.authorization;
 
       if (!creatorId) {
         return res.status(401).json({ error: "Unauthorized access" });
       }
 
       if (!name || !participants || !Array.isArray(participants)) {
-        return res
-          .status(400)
-          .json({ error: "Name and participants array are required" });
+        return res.status(400).json({ error: "Name and participants array are required" });
       }
 
+      // 🚀 TRUYỀN TOKEN XUỐNG DƯỚI
       const conversation = await ChatService.createGroupConversation(
         creatorId,
         name,
@@ -453,14 +500,13 @@ export class ChatController {
         avatarUrl,
         metadata,
         joinPolicy === "approval" ? "approval" : "open",
+        token // Truyền token vào đây
       );
 
       return res.status(201).json({ data: conversation });
     } catch (error: any) {
       console.error("[ChatController] createGroup error:", error);
-      return res
-        .status(500)
-        .json({ error: "Internal server error", detail: error.message });
+      return res.status(500).json({ error: "Internal server error", detail: error.message });
     }
   }
 
@@ -468,8 +514,12 @@ export class ChatController {
   static async updateJoinPolicy(req: Request, res: Response) {
     try {
       const requesterId = (req as any).user?._id;
-      const conversationId = typeof req.params.conversationId === "string" ? req.params.conversationId : "";
-      const joinPolicy = req.body?.joinPolicy === "approval" ? "approval" : "open";
+      const conversationId =
+        typeof req.params.conversationId === "string"
+          ? req.params.conversationId
+          : "";
+      const joinPolicy =
+        req.body?.joinPolicy === "approval" ? "approval" : "open";
 
       if (!requesterId) {
         return res.status(401).json({ error: "Unauthorized access" });
@@ -498,7 +548,10 @@ export class ChatController {
   static async updateConversationSettings(req: Request, res: Response) {
     try {
       const requesterId = (req as any).user?._id;
-      const conversationId = typeof req.params.conversationId === "string" ? req.params.conversationId : "";
+      const conversationId =
+        typeof req.params.conversationId === "string"
+          ? req.params.conversationId
+          : "";
       const { onlyAdminCanMessage } = req.body || {};
 
       if (!requesterId) {
@@ -517,7 +570,10 @@ export class ChatController {
 
       return res.status(200).json({ data: result.conversation });
     } catch (error: any) {
-      console.error("[ChatController] updateConversationSettings error:", error);
+      console.error(
+        "[ChatController] updateConversationSettings error:",
+        error,
+      );
       return res.status(error.statusCode || 500).json({
         error: error.message || "Internal server error",
       });
@@ -528,9 +584,16 @@ export class ChatController {
   static async requestOrAddGroupMember(req: Request, res: Response) {
     try {
       const requesterId = (req as any).user?._id;
-      const conversationId = typeof req.params.conversationId === "string" ? req.params.conversationId : "";
-      const targetEmail = typeof req.body?.email === "string" ? req.body.email : undefined;
-      const targetAccountId = typeof req.body?.accountId === "string" ? req.body.accountId : undefined;
+      const conversationId =
+        typeof req.params.conversationId === "string"
+          ? req.params.conversationId
+          : "";
+      const targetEmail =
+        typeof req.body?.email === "string" ? req.body.email : undefined;
+      const targetAccountId =
+        typeof req.body?.accountId === "string"
+          ? req.body.accountId
+          : undefined;
 
       if (!requesterId) {
         return res.status(401).json({ error: "Unauthorized access" });
@@ -560,15 +623,21 @@ export class ChatController {
   static async approveGroupMemberRequest(req: Request, res: Response) {
     try {
       const requesterId = (req as any).user?._id;
-      const conversationId = typeof req.params.conversationId === "string" ? req.params.conversationId : "";
-      const requestId = typeof req.params.requestId === "string" ? req.params.requestId : "";
+      const conversationId =
+        typeof req.params.conversationId === "string"
+          ? req.params.conversationId
+          : "";
+      const requestId =
+        typeof req.params.requestId === "string" ? req.params.requestId : "";
 
       if (!requesterId) {
         return res.status(401).json({ error: "Unauthorized access" });
       }
 
       if (!conversationId || !requestId) {
-        return res.status(400).json({ error: "conversationId and requestId are required" });
+        return res
+          .status(400)
+          .json({ error: "conversationId and requestId are required" });
       }
 
       const conversation = await ChatService.approveGroupMemberRequest(
@@ -590,15 +659,21 @@ export class ChatController {
   static async rejectGroupMemberRequest(req: Request, res: Response) {
     try {
       const requesterId = (req as any).user?._id;
-      const conversationId = typeof req.params.conversationId === "string" ? req.params.conversationId : "";
-      const requestId = typeof req.params.requestId === "string" ? req.params.requestId : "";
+      const conversationId =
+        typeof req.params.conversationId === "string"
+          ? req.params.conversationId
+          : "";
+      const requestId =
+        typeof req.params.requestId === "string" ? req.params.requestId : "";
 
       if (!requesterId) {
         return res.status(401).json({ error: "Unauthorized access" });
       }
 
       if (!conversationId || !requestId) {
-        return res.status(400).json({ error: "conversationId and requestId are required" });
+        return res
+          .status(400)
+          .json({ error: "conversationId and requestId are required" });
       }
 
       const conversation = await ChatService.rejectGroupMemberRequest(
@@ -620,15 +695,21 @@ export class ChatController {
   static async removeGroupMember(req: Request, res: Response) {
     try {
       const requesterId = (req as any).user?._id;
-      const conversationId = typeof req.params.conversationId === "string" ? req.params.conversationId : "";
-      const memberId = typeof req.params.memberId === "string" ? req.params.memberId : "";
+      const conversationId =
+        typeof req.params.conversationId === "string"
+          ? req.params.conversationId
+          : "";
+      const memberId =
+        typeof req.params.memberId === "string" ? req.params.memberId : "";
 
       if (!requesterId) {
         return res.status(401).json({ error: "Unauthorized access" });
       }
 
       if (!conversationId || !memberId) {
-        return res.status(400).json({ error: "conversationId and memberId are required" });
+        return res
+          .status(400)
+          .json({ error: "conversationId and memberId are required" });
       }
 
       const conversation = await ChatService.removeGroupMember(
@@ -650,7 +731,10 @@ export class ChatController {
   static async dissolveGroup(req: Request, res: Response) {
     try {
       const requesterId = (req as any).user?._id;
-      const conversationId = typeof req.params.conversationId === "string" ? req.params.conversationId : "";
+      const conversationId =
+        typeof req.params.conversationId === "string"
+          ? req.params.conversationId
+          : "";
 
       if (!requesterId) {
         return res.status(401).json({ error: "Unauthorized access" });
@@ -660,7 +744,10 @@ export class ChatController {
         return res.status(400).json({ error: "conversationId is required" });
       }
 
-      const conversation = await ChatService.dissolveGroup(requesterId, conversationId);
+      const conversation = await ChatService.dissolveGroup(
+        requesterId,
+        conversationId,
+      );
 
       return res.status(200).json({ data: conversation });
     } catch (error: any) {
@@ -675,8 +762,14 @@ export class ChatController {
   static async leaveGroup(req: Request, res: Response) {
     try {
       const requesterId = (req as any).user?._id;
-      const conversationId = typeof req.params.conversationId === "string" ? req.params.conversationId : "";
-      const newOwnerId = typeof req.body?.newOwnerId === "string" ? req.body.newOwnerId : undefined;
+      const conversationId =
+        typeof req.params.conversationId === "string"
+          ? req.params.conversationId
+          : "";
+      const newOwnerId =
+        typeof req.body?.newOwnerId === "string"
+          ? req.body.newOwnerId
+          : undefined;
 
       if (!requesterId) {
         return res.status(401).json({ error: "Unauthorized access" });
@@ -704,8 +797,14 @@ export class ChatController {
   // API: POST /api/conversations/class
   static async syncClassConversation(req: Request, res: Response) {
     try {
-      const { teamId, name, description, departmentId, archived, participants } =
-        req.body;
+      const {
+        teamId,
+        name,
+        description,
+        departmentId,
+        archived,
+        participants,
+      } = req.body;
 
       if (!teamId || !name || !Array.isArray(participants)) {
         return res.status(400).json({
@@ -736,7 +835,10 @@ export class ChatController {
   static async joinGroup(req: Request, res: Response) {
     try {
       const userId = (req as any).user?._id;
-      const conversationId = typeof req.params.conversationId === "string" ? req.params.conversationId : "";
+      const conversationId =
+        typeof req.params.conversationId === "string"
+          ? req.params.conversationId
+          : "";
 
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized access" });
@@ -762,21 +864,25 @@ export class ChatController {
   static async searchUsers(req: Request, res: Response) {
     try {
       const userId = (req as any).user?._id;
-      const keyword = typeof req.query.keyword === "string" ? req.query.keyword : "";
-      
+      const keyword =
+        typeof req.query.keyword === "string" ? req.query.keyword : "";
+
       if (!userId) {
         return res.status(401).json({ error: "Unauthorized access" });
       }
 
-      // Gọi hàm searchUsers từ ChatService mà anh em mình vừa viết
-      const data = await ChatService.searchUsers(keyword, userId);
+      // 🚀 1. LẤY TOKEN TỪ HEADERS CỦA REQUEST ĐANG GỌI ĐẾN
+      const token = req.headers.authorization;
+
+      // 🚀 2. TRUYỀN THÊM TOKEN VÀO THAM SỐ THỨ 3
+      const data = await ChatService.searchUsers(keyword, userId, token);
+
       return res.status(200).json({ data });
     } catch (error: any) {
       console.error("[ChatController] searchUsers error:", error);
       return res.status(error.statusCode || 500).json({ error: error.message });
     }
   }
-
   // API: GET /api/friend-requests
   static async getFriendRequests(req: Request, res: Response) {
     try {
@@ -797,16 +903,25 @@ export class ChatController {
     try {
       const requesterId = (req as any).user?._id;
       const { targetId, targetEmail } = req.body;
+      
+      // 🚀 LẤY TOKEN Ở ĐÂY
+      const token = req.headers.authorization; 
 
       if (!requesterId) {
         return res.status(401).json({ error: "Unauthorized access" });
       }
-      
+
       if (!targetId && !targetEmail) {
         return res.status(400).json({ error: "Missing targetId or targetEmail" });
       }
 
-      const data = await ChatService.sendFriendRequest(requesterId, targetEmail, targetId);
+      // 🚀 TRUYỀN TOKEN XUỐNG DƯỚI
+      const data = await ChatService.sendFriendRequest(
+        requesterId,
+        targetEmail,
+        targetId,
+        token 
+      );
       return res.status(200).json({ data });
     } catch (error: any) {
       console.error("[ChatController] sendFriendRequest error:", error);
@@ -814,17 +929,20 @@ export class ChatController {
     }
   }
 
- // ✅ CODE CHUẨN ĐỂ FIX LỖI
-static async acceptFriendRequest(req: any, res: any) {
+  // ✅ CODE CHUẨN ĐỂ FIX LỖI
+  static async acceptFriendRequest(req: any, res: any) {
     try {
       // 1. Lấy đúng cái chuỗi ID của người dùng (từ token đã giải mã)
-      const userId = req.user._id || req.user.id; 
-      
+      const userId = req.user._id || req.user.id;
+
       // 2. Lấy chuỗi ID người gửi từ Frontend truyền lên
       const requesterId = req.body.requesterId;
 
       // 3. Truyền đúng 2 cái chuỗi ID vào Service
-      const conversation = await ChatService.acceptFriendRequest(userId, requesterId); 
+      const conversation = await ChatService.acceptFriendRequest(
+        userId,
+        requesterId,
+      );
 
       return res.status(200).json({ success: true, data: conversation });
     } catch (error: any) {
@@ -834,22 +952,25 @@ static async acceptFriendRequest(req: any, res: any) {
   }
 
   // API: POST /api/friend-requests/reject
- static async rejectFriendRequest(req: Request, res: Response) {
+  static async rejectFriendRequest(req: Request, res: Response) {
     try {
       const userId = (req as any).user?._id;
       const { requesterId } = req.body;
 
       if (!userId) return res.status(401).json({ error: "Unauthorized" });
-      if (!requesterId) return res.status(400).json({ error: "Thiếu requesterId" });
+      if (!requesterId)
+        return res.status(400).json({ error: "Thiếu requesterId" });
 
       await ChatService.rejectFriendRequest(userId, requesterId);
-      return res.status(200).json({ success: true, message: "Đã từ chối kết bạn" });
+      return res
+        .status(200)
+        .json({ success: true, message: "Đã từ chối kết bạn" });
     } catch (error: any) {
       console.error("[ChatController] rejectFriendRequest error:", error);
       return res.status(error.statusCode || 500).json({ error: error.message });
     }
   }
-  
+
   // API: POST /api/socket-events/emit
   // ✨ REALTIME EVENTS ENDPOINT - Nhận sự kiện từ Core Service
   static async emitSocketEvent(req: Request, res: Response) {
@@ -863,7 +984,12 @@ static async acceptFriendRequest(req: any, res: any) {
       // Broadcast event tới tất cả clients trong room (classId)
       socketManager.broadcastToRoom(classId, eventName, payload);
 
-      return res.status(200).json({ success: true, message: `Event '${eventName}' broadcasted to class ${classId}` });
+      return res
+        .status(200)
+        .json({
+          success: true,
+          message: `Event '${eventName}' broadcasted to class ${classId}`,
+        });
     } catch (error: any) {
       console.error("[ChatController] emitSocketEvent error:", error);
       return res.status(error.statusCode || 500).json({ error: error.message });
@@ -875,14 +1001,36 @@ static async acceptFriendRequest(req: any, res: any) {
     try {
       // Authenticate: Ensure only ROLE_ADMIN has access
       const rolesHeader = req.headers["x-user-roles"] || "";
-      const roles = typeof rolesHeader === "string" ? rolesHeader.split(",") : [];
+      const roles =
+        typeof rolesHeader === "string" ? rolesHeader.split(",") : [];
       if (!roles.includes("ROLE_ADMIN")) {
-        return res.status(403).json({ error: "Forbidden", detail: "Bạn không có quyền thực hiện thao tác này." });
+        return res
+          .status(403)
+          .json({
+            error: "Forbidden",
+            detail: "Bạn không có quyền thực hiện thao tác này.",
+          });
       }
       // 1. Pre-populate last 30 days
-      const result: Record<string, { date: string; internal: number; external: number }> = {};
-      const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-      
+      const result: Record<
+        string,
+        { date: string; internal: number; external: number }
+      > = {};
+      const months = [
+        "Jan",
+        "Feb",
+        "Mar",
+        "Apr",
+        "May",
+        "Jun",
+        "Jul",
+        "Aug",
+        "Sep",
+        "Oct",
+        "Nov",
+        "Dec",
+      ];
+
       const formatDate = (d: Date): string => {
         const day = String(d.getDate()).padStart(2, "0");
         const month = months[d.getMonth()];
@@ -900,36 +1048,40 @@ static async acceptFriendRequest(req: any, res: any) {
       const stats = await Message.aggregate([
         {
           $match: {
-            createdAt: { $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) }
-          }
+            createdAt: {
+              $gte: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+            },
+          },
         },
         {
           $lookup: {
             from: "conversations",
             localField: "conversationId",
             foreignField: "_id",
-            as: "conversation"
-          }
+            as: "conversation",
+          },
         },
         {
-          $unwind: "$conversation"
+          $unwind: "$conversation",
         },
         {
           $group: {
             _id: {
-              date: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
-              type: "$conversation.type"
+              date: {
+                $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
+              },
+              type: "$conversation.type",
             },
-            count: { $sum: 1 }
-          }
-        }
+            count: { $sum: 1 },
+          },
+        },
       ]);
 
       // 3. Process aggregation results
       for (const item of stats) {
         const rawDateStr = item._id.date; // e.g. "2026-05-24"
         const type = item._id.type; // "class" or "private"
-        
+
         if (rawDateStr) {
           const parts = rawDateStr.split("-");
           if (parts.length === 3) {
@@ -954,7 +1106,9 @@ static async acceptFriendRequest(req: any, res: any) {
       return res.status(200).json({ data: finalData });
     } catch (error: any) {
       console.error("[ChatController] getMessageStats error:", error);
-      return res.status(500).json({ error: "Internal server error", detail: error.message });
+      return res
+        .status(500)
+        .json({ error: "Internal server error", detail: error.message });
     }
   }
 }

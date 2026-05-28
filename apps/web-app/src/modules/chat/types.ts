@@ -2,11 +2,13 @@
 // Đây là interface dùng cho component hiển thị.
 // Dữ liệu từ API sẽ được transform sang format này qua các helper ở chatApi.ts.
 
-export type ChatMode = "private" | "class";
+export type ChatMode = "private" | "class" | "group"; // Thêm "group" vào đây
 
 export interface User {
   id: string; // mapped từ _id của MongoDB
+  _id?: string;
   name: string; // mapped từ fullName của MongoDB
+  fullName?: string;
   email?: string;
   code?: string; // MSSV / MSGV
   role?: string;

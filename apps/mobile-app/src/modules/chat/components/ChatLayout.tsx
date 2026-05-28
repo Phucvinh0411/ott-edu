@@ -24,6 +24,7 @@ import {
 import { Attachment } from "../types";
 
 import { API_URL, getAccessToken } from "../../api";
+import { useSocket } from '../../../shared/hooks/useSocket';
 
 const CHAT_SERVICE_URL = API_URL;
 
@@ -34,7 +35,7 @@ interface ChatLayoutProps {
 export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
   // Mobile specific state to track which view is active
   const [activeView, setActiveView] = useState<"sidebar" | "chat">("sidebar");
-
+ const socket = useSocket();
   const [currentMode, setCurrentMode] = useState<ChatMode>("private");
   const [searchQuery, setSearchQuery] = useState("");
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -877,6 +878,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
           onStartPrivateChat={handleStartPrivateChat}
           isLoading={isLoadingConversations}
           error={error}
+          socket={socket}
         />
       ) : (
         <>

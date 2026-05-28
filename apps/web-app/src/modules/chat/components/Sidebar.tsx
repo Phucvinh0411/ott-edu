@@ -6,7 +6,12 @@ import { RefreshCw, Users, UserPlus } from "lucide-react";
 import Image from "next/image";
 import { CreateGroupModal } from "./CreateGroupModal";
 import { FriendRequestsModal } from "./FriendRequestsModal";
-import { createGroupConversation, fetchFriendRequests } from "../chatApi";
+import {
+  createGroupConversation,
+  fetchFriendRequests,
+  searchUsersApi,
+  sendFriendRequestApi,
+} from "../chatApi";
 import { useState, useEffect } from "react";
 import { Socket } from "socket.io-client";
 
@@ -47,6 +52,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [isFriendRequestOpen, setIsFriendRequestOpen] = useState(false);
   const [pendingCount, setPendingCount] = useState(0);
 
+  // 🚀 THÊM 2 STATE MỚI CHO TÌM KIẾM TOÀN HỆ THỐNG
+  const [globalUsers, setGlobalUsers] = useState<User[]>([]);
+  const [isSearchingGlobal, setIsSearchingGlobal] = useState(false);
+
   // Fetch so luong loi moi ket ban
   const fetchPendingCount = async () => {
     try {
@@ -58,7 +67,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   };
 
   // Fetch pending count khi component mount
- useEffect(() => {
+  useEffect(() => {
     const initLoad = async () => {
       try {
         await fetchPendingCount();
@@ -66,36 +75,61 @@ export const Sidebar: React.FC<SidebarProps> = ({
         console.error("Lỗi lấy số lượng:", error);
       }
     };
-    
+
     initLoad();
   }, []);
 
   // Lang nghe su kien socket de update realtime
+ // Lang nghe su kien socket de update realtime
   useEffect(() => {
     if (!socket) return;
 
-    const handleFriendStatusUpdated = () => {
+    // THÊM CÁI NÀY VÀO ĐỂ BẮT SỰ KIỆN KẾT BẠN MỚI
+    const handleNewFriendRequest = () => {
+      console.log("🔥 [FRONTEND] Đã nhận event new_friend_request -> Cập nhật chấm đỏ");
       fetchPendingCount();
     };
 
-    const handleFriendRequestAccepted = () => {
-      fetchPendingCount();
-    };
+    const handleFriendStatusUpdated = () => { fetchPendingCount(); };
+    const handleFriendRequestAccepted = () => { fetchPendingCount(); };
+    const handleFriendRequestRejected = () => { fetchPendingCount(); };
 
-    const handleFriendRequestRejected = () => {
-      fetchPendingCount();
-    };
-
+    // ĐĂNG KÝ CÁC EVENT
+    socket.on("new_friend_request", handleNewFriendRequest); // 🚀 THIẾU DÒNG NÀY
     socket.on("friend_status_updated", handleFriendStatusUpdated);
     socket.on("friend_request_accepted", handleFriendRequestAccepted);
     socket.on("friend_request_rejected", handleFriendRequestRejected);
 
     return () => {
+      // GỠ CÁC EVENT
+      socket.off("new_friend_request", handleNewFriendRequest);
       socket.off("friend_status_updated", handleFriendStatusUpdated);
       socket.off("friend_request_accepted", handleFriendRequestAccepted);
       socket.off("friend_request_rejected", handleFriendRequestRejected);
     };
   }, [socket]);
+
+  // 🚀 LOGIC TÌM KIẾM GLOBAL CÓ DEBOUNCE (ĐÃ FIX: GỌI CẢ KHI RỖNG ĐỂ LẤY GỢI Ý)
+  useEffect(() => {
+    if (currentMode !== "private") return;
+
+    const normalized = searchQuery.trim();
+    setIsSearchingGlobal(true);
+
+    const timer = setTimeout(async () => {
+      try {
+        const results = await searchUsersApi(normalized);
+        // Lấy đúng mảng data từ API trả về
+        setGlobalUsers(results.data || []);
+      } catch (e) {
+        console.error("Lỗi tìm kiếm global:", e);
+      } finally {
+        setIsSearchingGlobal(false);
+      }
+    }, 500); // Trễ 0.5s để chống spam API khi đang gõ liên tục
+
+    return () => clearTimeout(timer);
+  }, [searchQuery, currentMode]);
 
   const handleCreateGroup = async (name: string, selectedIds: string[]) => {
     try {
@@ -112,16 +146,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
       }
 
       alert("Tạo nhóm thành công! 🚀");
-      
-    } catch (error) { // Xóa chữ : any ở đây
+    } catch (error) {
       console.error("Lỗi tạo nhóm:", error);
-      
+
       // Ép kiểu an toàn (không dùng any) để lấy được cấu trúc lỗi của Axios
-      const err = error as { response?: { data?: { error?: string } }; message: string };
+      const err = error as {
+        response?: { data?: { error?: string } };
+        message: string;
+      };
       alert(`Không thể tạo nhóm: ${err.response?.data?.error || err.message}`);
     }
   };
+
   const normalizedQuery = searchQuery.trim().toLowerCase();
+
   const filteredConversations = conversations.filter((c) => {
     if (c.type !== currentMode) return false;
     if (!normalizedQuery) return true;
@@ -143,6 +181,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
     return searchable.includes(normalizedQuery);
   });
+
+  // 🚀 QUYẾT ĐỊNH XEM ĐANG HIỂN THỊ SUGGEST HAY KẾT QUẢ GLOBAL
+  const isSearchingText = normalizedQuery.length > 0;
+  // Ưu tiên dùng globalUsers (vì nó tự động lấy từ API), nếu rỗng thì mới xài suggestedUsers của cha truyền vào
+  const usersToDisplay = globalUsers.length > 0 ? globalUsers : suggestedUsers;
 
   return (
     <div className="flex h-full w-80 flex-shrink-0 flex-col border-r border-slate-200 bg-white">
@@ -231,79 +274,125 @@ export const Sidebar: React.FC<SidebarProps> = ({
             />
           ))}
 
-        {!isLoading &&
-          !error &&
-          currentMode === "private" &&
-          suggestedUsers.length > 0 && (
-            <div className="mt-4 px-3">
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
-                Gợi ý từ lớp/nhóm của bạn
-              </p>
-              <div className="space-y-1">
-                {suggestedUsers.map((user) => (
-                  <div
-                    key={user.id}
-                    className="group flex w-full items-center justify-between gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-slate-100"
-                  >
-                    {/* Bấm vào tên/avatar thì mở khung chat (như cũ) */}
-                    <button
-                      type="button"
-                      onClick={() => onStartPrivateChat(user)}
-                      className="flex flex-1 items-center gap-3 min-w-0"
-                    >
-                      <Image
-                        src={
-                          user.avatarUrl ||
-                          `https://i.pravatar.cc/150?u=${user.email}`
-                        }
-                        alt={user.name}
-                        width={36}
-                        height={36}
-                        className="h-9 w-9 shrink-0 rounded-full object-cover"
-                      />
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-800">
-                          {user.name}
-                        </p>
-                        <p className="truncate text-xs text-slate-500">
-                          {user.code || user.email}
-                        </p>
-                      </div>
-                    </button>
-
-                    {/* NÚT KẾT BẠN */}
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation(); // Ngăn không cho click nhảy sang khung chat
-                        // GỌI HÀM KẾT BẠN Ở ĐÂY NÈ (ví dụ: sendFriendRequest(user.email))
-                        alert(`Đã gửi lời mời kết bạn đến ${user.name}`);
-                      }}
-                      className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 opacity-0 transition-all hover:bg-blue-500 hover:text-white group-hover:opacity-100"
-                      title="Gửi kết bạn"
-                    >
-                      <UserPlus size={16} />
-                    </button>
-                  </div>
-                ))}
+        {/* 🚀 KHU VỰC HIỂN THỊ GỢI Ý / GLOBAL SEARCH */}
+        {!isLoading && !error && currentMode === "private" && (
+          <div className="mt-4 px-3">
+            {isSearchingGlobal ? (
+              <div className="py-4 flex justify-center items-center text-slate-400 gap-2">
+                <RefreshCw size={14} className="animate-spin" />
+                <span className="text-xs">Đang tìm kiếm...</span>
               </div>
-            </div>
-          )}
+            ) : usersToDisplay.length > 0 ? (
+              <>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
+                  {isSearchingText
+                    ? "KẾT QUẢ TÌM KIẾM TOÀN HỆ THỐNG"
+                    : "Gợi ý từ lớp/nhóm của bạn"}
+                </p>
+                <div className="space-y-1">
+                  {usersToDisplay.map((user) => {
+                    // Type-safe id fallback (ko dung `any`)
+                    const uniqueId =
+                      (user as User & { _id?: string })._id || user.id;
 
-        {!isLoading &&
-          !error &&
-          currentMode === "private" &&
-          normalizedQuery &&
-          suggestedUsers.length === 0 && (
-            <div className="px-4 py-2 text-xs text-slate-400">
-              Không tìm thấy thành viên lớp/nhóm phù hợp.
-            </div>
-          )}
+                    const extUser = user as User & {
+                      fullName?: string;
+                      name?: string;
+                      email?: string;
+                      code?: string;
+                    };
+                    const displayName =
+                      extUser.fullName ||
+                      extUser.name ||
+                      (extUser.email
+                        ? extUser.email.split("@")[0]
+                        : "Người dùng");
+                    const displayCode = extUser.code;
+
+                    return (
+                      <div
+                        key={uniqueId}
+                        className="group flex w-full items-center justify-between gap-3 rounded-xl px-2 py-2 text-left transition-colors hover:bg-slate-100"
+                      >
+                        {/* Bấm vào tên/avatar thì mở khung chat */}
+                        <button
+                          type="button"
+                          onClick={() => onStartPrivateChat(user)}
+                          className="flex flex-1 items-center gap-3 min-w-0"
+                        >
+                          <Image
+                            src={
+                              user.avatarUrl ||
+                              `https://i.pravatar.cc/150?u=${user.email}`
+                            }
+                            alt={user.name}
+                            width={36}
+                            height={36}
+                            className="h-9 w-9 shrink-0 rounded-full object-cover"
+                          />
+                          <div className="min-w-0 text-left">
+                            {/* HIỂN THỊ TÊN CHUẨN */}
+                            <p className="truncate text-sm font-medium text-slate-800">
+                              {displayName}
+                            </p>
+                            {/* HIỂN THỊ EMAIL/CODE */}
+                            <p className="truncate text-xs text-slate-500">
+                              {displayCode || user.email}
+                            </p>
+                          </div>
+                        </button>
+
+                        {/* NÚT KẾT BẠN */}
+                        <button
+                          type="button"
+                          onClick={async (e) => {
+                            e.stopPropagation(); // Ngăn click nhầm qua khung chat
+                            try {
+                              if (sendFriendRequestApi) {
+                                await sendFriendRequestApi(uniqueId);
+                                alert(
+                                  `Đã gửi lời mời kết bạn đến ${displayName}! Hãy chờ họ chấp nhận nhé!`,
+                                );
+                              } else {
+                                alert(
+                                  `Chưa cấu hình API gửi lời mời cho ${displayName}`,
+                                );
+                              }
+                            } catch (err: unknown) {
+                              const errorMessage =
+                                err instanceof Error
+                                  ? err.message
+                                  : "Lỗi gửi lời mời kết bạn";
+                              alert(errorMessage);
+                            }
+                          }}
+                          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 opacity-0 transition-all hover:bg-blue-500 hover:text-white group-hover:opacity-100"
+                          title="Gửi kết bạn"
+                        >
+                          <UserPlus size={16} />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : isSearchingText ? (
+              <div className="px-4 py-2 text-center text-xs text-slate-400">
+                Không tìm thấy người dùng nào trong hệ thống.
+              </div>
+            ) : suggestedUsers.length === 0 ? (
+              <div className="px-4 py-2 text-xs text-slate-400">
+                Không tìm thấy thành viên lớp/nhóm phù hợp.
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
       <CreateGroupModal
         isOpen={isCreateGroupOpen}
         onClose={() => setIsCreateGroupOpen(false)}
         onCreateGroup={handleCreateGroup}
+        suggestedUsers={suggestedUsers}
       />
       <FriendRequestsModal
         isOpen={isFriendRequestOpen}
