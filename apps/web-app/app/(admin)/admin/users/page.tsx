@@ -140,9 +140,10 @@ export default function AdminUserManagementPage() {
       void fetchUserData();
       const sumData = await getUserSummary();
       setSummary(sumData);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      showToast(err?.message || "Lỗi khi nhập tài khoản. Vui lòng kiểm tra lại file Excel.", "error");
+      const message = err instanceof Error ? err.message : "Lỗi khi nhập tài khoản. Vui lòng kiểm tra lại file Excel.";
+      showToast(message, "error");
       throw err;
     }
   };

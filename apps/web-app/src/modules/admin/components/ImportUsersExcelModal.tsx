@@ -38,9 +38,10 @@ export default function ImportUsersExcelModal({
       await onSubmit(file);
       setFile(null);
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError(err?.message || "Lỗi khi nhập tài khoản. Vui lòng kiểm tra lại file Excel.");
+      const message = err instanceof Error ? err.message : "Lỗi khi nhập tài khoản. Vui lòng kiểm tra lại file Excel.";
+      setError(message);
     } finally {
       setIsUploading(false);
     }
