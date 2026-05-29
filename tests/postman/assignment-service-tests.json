@@ -121,11 +121,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJjYW90aGFuaGRvbmcuNDExMThAZ21haWwuY29tIiwiYWNjb3VudElkIjo0LCJyb2xlcyI6WyJST0xFX1NUVURFTlQiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDM0MywiZXhwIjoxNzgwMDcxMjQzfQ.QE527YH9olik70tC0pvXSfgRgndGQQyUElEpAytullD9kmGGtxPvmyIeDB_mxUGK",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Check current authenticated account details.",
             "url": {
@@ -141,7 +143,16 @@
               "query": [],
               "variable": []
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         }
       ]
     },
@@ -155,11 +166,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJ0ZWFjaGVyQGV4YW1wbGUuY29tIiwiYWNjb3VudElkIjoyLCJyb2xlcyI6WyJST0xFX1RFQUNIRVIiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDA3MywiZXhwIjoxNzgwMDcwOTczfQ.MYyhqeFiUmp3m_M5q-o9KfQqBKJ8OgdvDQhAuhXUAePwHF4TLdMIw_4BhlhJwp6W\"",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{teacherToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Create a new QUIZ assignment containing sample questions. Only accessible for TEACHER role.",
             "url": {
@@ -198,7 +211,19 @@
                   "var jsonData = pm.response.json();",
                   "if (jsonData && jsonData.id) {",
                   "    pm.collectionVariables.set(\"assignmentId\", jsonData.id);",
+                  "    pm.collectionVariables.set(\"quizAssignmentId\", jsonData.id);",
                   "    console.log(\"New quiz assignmentId saved: \" + jsonData.id);",
+                  "    ",
+                  "    if (jsonData.questions && jsonData.questions.length > 0) {",
+                  "        var firstQuestion = jsonData.questions[0];",
+                  "        pm.collectionVariables.set(\"questionId\", firstQuestion.id);",
+                  "        console.log(\"Saved questionId variable: \" + firstQuestion.id);",
+                  "        ",
+                  "        if (firstQuestion.options && firstQuestion.options.length > 0) {",
+                  "            pm.collectionVariables.set(\"optionId\", firstQuestion.options[0].id);",
+                  "            console.log(\"Saved optionId variable: \" + firstQuestion.options[0].id);",
+                  "        }",
+                  "    }",
                   "}"
                 ]
               }
@@ -212,11 +237,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJ0ZWFjaGVyQGV4YW1wbGUuY29tIiwiYWNjb3VudElkIjoyLCJyb2xlcyI6WyJST0xFX1RFQUNIRVIiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDA3MywiZXhwIjoxNzgwMDcwOTczfQ.MYyhqeFiUmp3m_M5q-o9KfQqBKJ8OgdvDQhAuhXUAePwHF4TLdMIw_4BhlhJwp6W\"",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{teacherToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Create a new ESSAY assignment. Only accessible for TEACHER role.",
             "url": {
@@ -254,7 +281,7 @@
                 "exec": [
                   "var jsonData = pm.response.json();",
                   "if (jsonData && jsonData.id) {",
-                  "    pm.collectionVariables.set(\"assignmentId\", jsonData.id);",
+                  "    pm.collectionVariables.set(\"assignmentId\", jsonData.id);\n    pm.collectionVariables.set(\"essayAssignmentId\", jsonData.id);",
                   "    console.log(\"New essay assignmentId saved: \" + jsonData.id);",
                   "}"
                 ]
@@ -269,11 +296,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJ0ZWFjaGVyQGV4YW1wbGUuY29tIiwiYWNjb3VudElkIjoyLCJyb2xlcyI6WyJST0xFX1RFQUNIRVIiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDA3MywiZXhwIjoxNzgwMDcwOTczfQ.MYyhqeFiUmp3m_M5q-o9KfQqBKJ8OgdvDQhAuhXUAePwHF4TLdMIw_4BhlhJwp6W\"",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{teacherToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Get all assignments created by the current teacher account.",
             "url": {
@@ -286,7 +315,7 @@
                 "api",
                 "v1",
                 "assignments",
-                "my-assignments?page=0&size=20&sortBy=createdAt"
+                "my-assignments"
               ],
               "query": [
                 {
@@ -304,7 +333,16 @@
               ],
               "variable": []
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         },
         {
           "name": "Archive Assignment",
@@ -313,11 +351,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJ0ZWFjaGVyQGV4YW1wbGUuY29tIiwiYWNjb3VudElkIjoyLCJyb2xlcyI6WyJST0xFX1RFQUNIRVIiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDA3MywiZXhwIjoxNzgwMDcwOTczfQ.MYyhqeFiUmp3m_M5q-o9KfQqBKJ8OgdvDQhAuhXUAePwHF4TLdMIw_4BhlhJwp6W\"",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{teacherToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Soft-delete / Archive an assignment. Only the creator teacher can perform this.",
             "url": {
@@ -336,7 +376,16 @@
               "query": [],
               "variable": []
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         }
       ]
     },
@@ -350,11 +399,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJ0ZWFjaGVyQGV4YW1wbGUuY29tIiwiYWNjb3VudElkIjoyLCJyb2xlcyI6WyJST0xFX1RFQUNIRVIiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDA3MywiZXhwIjoxNzgwMDcwOTczfQ.MYyhqeFiUmp3m_M5q-o9KfQqBKJ8OgdvDQhAuhXUAePwHF4TLdMIw_4BhlhJwp6W\"",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{teacherToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Get all student submissions for a specific assignment.",
             "url": {
@@ -368,7 +419,7 @@
                 "v1",
                 "submissions",
                 "assignment",
-                "{{assignmentId}}?page=0&size=20"
+                "{{assignmentId}}"
               ],
               "query": [
                 {
@@ -382,7 +433,16 @@
               ],
               "variable": []
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         },
         {
           "name": "Get Pending Grading Submissions",
@@ -391,11 +451,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJ0ZWFjaGVyQGV4YW1wbGUuY29tIiwiYWNjb3VudElkIjoyLCJyb2xlcyI6WyJST0xFX1RFQUNIRVIiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDA3MywiZXhwIjoxNzgwMDcwOTczfQ.MYyhqeFiUmp3m_M5q-o9KfQqBKJ8OgdvDQhAuhXUAePwHF4TLdMIw_4BhlhJwp6W\"",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{teacherToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Get submissions that are pending grading (for Essay type assignments).",
             "url": {
@@ -410,7 +472,7 @@
                 "submissions",
                 "assignment",
                 "{{assignmentId}}",
-                "pending?page=0&size=20"
+                "pending"
               ],
               "query": [
                 {
@@ -424,7 +486,16 @@
               ],
               "variable": []
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         },
         {
           "name": "View Submission Detail (Teacher Mode)",
@@ -433,11 +504,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJ0ZWFjaGVyQGV4YW1wbGUuY29tIiwiYWNjb3VudElkIjoyLCJyb2xlcyI6WyJST0xFX1RFQUNIRVIiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDA3MywiZXhwIjoxNzgwMDcwOTczfQ.MYyhqeFiUmp3m_M5q-o9KfQqBKJ8OgdvDQhAuhXUAePwHF4TLdMIw_4BhlhJwp6W\"",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{teacherToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Retrieve the full detail of a student's submission (Answers, Essay contents, files) for a teacher to grade.",
             "url": {
@@ -456,7 +529,16 @@
               "query": [],
               "variable": []
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         },
         {
           "name": "Grade & Feedback Submission",
@@ -465,11 +547,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJ0ZWFjaGVyQGV4YW1wbGUuY29tIiwiYWNjb3VudElkIjoyLCJyb2xlcyI6WyJST0xFX1RFQUNIRVIiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDA3MywiZXhwIjoxNzgwMDcwOTczfQ.MYyhqeFiUmp3m_M5q-o9KfQqBKJ8OgdvDQhAuhXUAePwHF4TLdMIw_4BhlhJwp6W\"",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{teacherToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Submit a grade score and written feedback for a student's submission.",
             "url": {
@@ -497,7 +581,16 @@
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         }
       ]
     },
@@ -511,11 +604,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJjYW90aGFuaGRvbmcuNDExMThAZ21haWwuY29tIiwiYWNjb3VudElkIjo0LCJyb2xlcyI6WyJST0xFX1NUVURFTlQiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDM0MywiZXhwIjoxNzgwMDcxMjQzfQ.QE527YH9olik70tC0pvXSfgRgndGQQyUElEpAytullD9kmGGtxPvmyIeDB_mxUGK",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Fetch all assignments active for the student's team class.",
             "url": {
@@ -529,7 +624,7 @@
                 "v1",
                 "assignments",
                 "team",
-                "{{teamId}}?page=0&size=20&sortBy=dueDate"
+                "{{teamId}}"
               ],
               "query": [
                 {
@@ -547,7 +642,16 @@
               ],
               "variable": []
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         },
         {
           "name": "Get Assignment Details (Safe View)",
@@ -556,11 +660,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJjYW90aGFuaGRvbmcuNDExMThAZ21haWwuY29tIiwiYWNjb3VudElkIjo0LCJyb2xlcyI6WyJST0xFX1NUVURFTlQiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDM0MywiZXhwIjoxNzgwMDcxMjQzfQ.QE527YH9olik70tC0pvXSfgRgndGQQyUElEpAytullD9kmGGtxPvmyIeDB_mxUGK",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Get detailed assignment structure. Correct answers are hidden to prevent cheating.",
             "url": {
@@ -578,7 +684,16 @@
               "query": [],
               "variable": []
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         },
         {
           "name": "Check Remaining Attempt Limits",
@@ -587,11 +702,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJjYW90aGFuaGRvbmcuNDExMThAZ21haWwuY29tIiwiYWNjb3VudElkIjo0LCJyb2xlcyI6WyJST0xFX1NUVURFTlQiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDM0MywiZXhwIjoxNzgwMDcxMjQzfQ.QE527YH9olik70tC0pvXSfgRgndGQQyUElEpAytullD9kmGGtxPvmyIeDB_mxUGK",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Check if student has remaining attempt count for a Quiz assignment.",
             "url": {
@@ -610,7 +727,16 @@
               "query": [],
               "variable": []
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         },
         {
           "name": "Get My Attempt History",
@@ -619,11 +745,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJjYW90aGFuaGRvbmcuNDExMThAZ21haWwuY29tIiwiYWNjb3VudElkIjo0LCJyb2xlcyI6WyJST0xFX1NUVURFTlQiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDM0MywiZXhwIjoxNzgwMDcxMjQzfQ.QE527YH9olik70tC0pvXSfgRgndGQQyUElEpAytullD9kmGGtxPvmyIeDB_mxUGK",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Get list of all previous submissions made by student for this assignment.",
             "url": {
@@ -642,7 +770,16 @@
               "query": [],
               "variable": []
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         }
       ]
     },
@@ -656,11 +793,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJjYW90aGFuaGRvbmcuNDExMThAZ21haWwuY29tIiwiYWNjb3VudElkIjo0LCJyb2xlcyI6WyJST0xFX1NUVURFTlQiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDM0MywiZXhwIjoxNzgwMDcxMjQzfQ.QE527YH9olik70tC0pvXSfgRgndGQQyUElEpAytullD9kmGGtxPvmyIeDB_mxUGK",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Initialize a new submission record (status DRAFT) for the student.",
             "url": {
@@ -706,11 +845,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJjYW90aGFuaGRvbmcuNDExMThAZ21haWwuY29tIiwiYWNjb3VudElkIjo0LCJyb2xlcyI6WyJST0xFX1NUVURFTlQiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDM0MywiZXhwIjoxNzgwMDcxMjQzfQ.QE527YH9olik70tC0pvXSfgRgndGQQyUElEpAytullD9kmGGtxPvmyIeDB_mxUGK",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Get active draft submission or the last submitted one.",
             "url": {
@@ -730,7 +871,16 @@
               "query": [],
               "variable": []
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         },
         {
           "name": "Save Essay Draft Progress",
@@ -739,11 +889,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJjYW90aGFuaGRvbmcuNDExMThAZ21haWwuY29tIiwiYWNjb3VudElkIjo0LCJyb2xlcyI6WyJST0xFX1NUVURFTlQiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDM0MywiZXhwIjoxNzgwMDcxMjQzfQ.QE527YH9olik70tC0pvXSfgRgndGQQyUElEpAytullD9kmGGtxPvmyIeDB_mxUGK",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Auto-save / save draft answers for student. Status remains DRAFT.",
             "url": {
@@ -771,7 +923,16 @@
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         },
         {
           "name": "Submit Essay Assignment",
@@ -780,11 +941,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJjYW90aGFuaGRvbmcuNDExMThAZ21haWwuY29tIiwiYWNjb3VudElkIjo0LCJyb2xlcyI6WyJST0xFX1NUVURFTlQiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDM0MywiZXhwIjoxNzgwMDcxMjQzfQ.QE527YH9olik70tC0pvXSfgRgndGQQyUElEpAytullD9kmGGtxPvmyIeDB_mxUGK",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Finalize draft and submit assignment for teacher review.",
             "url": {
@@ -813,7 +976,16 @@
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         },
         {
           "name": "View My Submission Details",
@@ -822,11 +994,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJjYW90aGFuaGRvbmcuNDExMThAZ21haWwuY29tIiwiYWNjb3VudElkIjo0LCJyb2xlcyI6WyJST0xFX1NUVURFTlQiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDM0MywiZXhwIjoxNzgwMDcxMjQzfQ.QE527YH9olik70tC0pvXSfgRgndGQQyUElEpAytullD9kmGGtxPvmyIeDB_mxUGK",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Student views their own submission answers and status.",
             "url": {
@@ -844,7 +1018,16 @@
               "query": [],
               "variable": []
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         },
         {
           "name": "View My Received Grade & Feedback",
@@ -853,11 +1036,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJjYW90aGFuaGRvbmcuNDExMThAZ21haWwuY29tIiwiYWNjb3VudElkIjo0LCJyb2xlcyI6WyJST0xFX1NUVURFTlQiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDM0MywiZXhwIjoxNzgwMDcxMjQzfQ.QE527YH9olik70tC0pvXSfgRgndGQQyUElEpAytullD9kmGGtxPvmyIeDB_mxUGK",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Student check grade and comments given by teacher.",
             "url": {
@@ -876,7 +1061,16 @@
               "query": [],
               "variable": []
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         },
         {
           "name": "Get My Submission History",
@@ -885,11 +1079,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJjYW90aGFuaGRvbmcuNDExMThAZ21haWwuY29tIiwiYWNjb3VudElkIjo0LCJyb2xlcyI6WyJST0xFX1NUVURFTlQiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDM0MywiZXhwIjoxNzgwMDcxMjQzfQ.QE527YH9olik70tC0pvXSfgRgndGQQyUElEpAytullD9kmGGtxPvmyIeDB_mxUGK",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Get complete submission history for current student account.",
             "url": {
@@ -902,7 +1098,7 @@
                 "api",
                 "v1",
                 "submissions",
-                "my-submissions?page=0&size=20"
+                "my-submissions"
               ],
               "query": [
                 {
@@ -916,7 +1112,16 @@
               ],
               "variable": []
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         }
       ]
     },
@@ -930,11 +1135,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJjYW90aGFuaGRvbmcuNDExMThAZ21haWwuY29tIiwiYWNjb3VudElkIjo0LCJyb2xlcyI6WyJST0xFX1NUVURFTlQiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDM0MywiZXhwIjoxNzgwMDcxMjQzfQ.QE527YH9olik70tC0pvXSfgRgndGQQyUElEpAytullD9kmGGtxPvmyIeDB_mxUGK",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Get lists of all quizzes assigned for student team (from QuizController).",
             "url": {
@@ -953,7 +1160,16 @@
               "query": [],
               "variable": []
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         },
         {
           "name": "Get Quiz Detail (Without answers)",
@@ -962,15 +1178,17 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJjYW90aGFuaGRvbmcuNDExMThAZ21haWwuY29tIiwiYWNjb3VudElkIjo0LCJyb2xlcyI6WyJST0xFX1NUVURFTlQiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDM0MywiZXhwIjoxNzgwMDcxMjQzfQ.QE527YH9olik70tC0pvXSfgRgndGQQyUElEpAytullD9kmGGtxPvmyIeDB_mxUGK",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Get questions and choices for quiz. Correct answers are omitted.",
             "url": {
-              "raw": "{{baseUrl}}/api/v1/quiz/{{assignmentId}}",
+              "raw": "{{baseUrl}}/api/v1/quiz/{{quizAssignmentId}}",
               "protocol": "",
               "host": [
                 "{{baseUrl}}"
@@ -979,12 +1197,33 @@
                 "api",
                 "v1",
                 "quiz",
-                "{{assignmentId}}"
+                "{{quizAssignmentId}}"
               ],
               "query": [],
               "variable": []
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData && jsonData.questions && jsonData.questions.length > 0) {",
+                  "    var firstQuestion = jsonData.questions[0];",
+                  "    pm.collectionVariables.set(\"questionId\", firstQuestion.id);",
+                  "    console.log(\"Saved questionId from Quiz Detail: \" + firstQuestion.id);",
+                  "    ",
+                  "    if (firstQuestion.options && firstQuestion.options.length > 0) {",
+                  "        pm.collectionVariables.set(\"optionId\", firstQuestion.options[0].id);",
+                  "        console.log(\"Saved optionId from Quiz Detail: \" + firstQuestion.options[0].id);",
+                  "    }",
+                  "}"
+                ]
+              }
+            }
+          ]
         },
         {
           "name": "Start Quiz Attempt",
@@ -993,15 +1232,17 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJjYW90aGFuaGRvbmcuNDExMThAZ21haWwuY29tIiwiYWNjb3VudElkIjo0LCJyb2xlcyI6WyJST0xFX1NUVURFTlQiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDM0MywiZXhwIjoxNzgwMDcxMjQzfQ.QE527YH9olik70tC0pvXSfgRgndGQQyUElEpAytullD9kmGGtxPvmyIeDB_mxUGK",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Start a quiz attempt. Will create or resume a DRAFT submission.",
             "url": {
-              "raw": "{{baseUrl}}/api/v1/quiz/{{assignmentId}}/start",
+              "raw": "{{baseUrl}}/api/v1/quiz/{{quizAssignmentId}}/start",
               "protocol": "",
               "host": [
                 "{{baseUrl}}"
@@ -1010,7 +1251,7 @@
                 "api",
                 "v1",
                 "quiz",
-                "{{assignmentId}}",
+                "{{quizAssignmentId}}",
                 "start"
               ],
               "query": [],
@@ -1042,15 +1283,17 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJjYW90aGFuaGRvbmcuNDExMThAZ21haWwuY29tIiwiYWNjb3VudElkIjo0LCJyb2xlcyI6WyJST0xFX1NUVURFTlQiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDM0MywiZXhwIjoxNzgwMDcxMjQzfQ.QE527YH9olik70tC0pvXSfgRgndGQQyUElEpAytullD9kmGGtxPvmyIeDB_mxUGK",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Check if student already started an active attempt (helps UI to decide whether to show Resume or Start).",
             "url": {
-              "raw": "{{baseUrl}}/api/v1/quiz/{{assignmentId}}/my-submission",
+              "raw": "{{baseUrl}}/api/v1/quiz/{{quizAssignmentId}}/my-submission",
               "protocol": "",
               "host": [
                 "{{baseUrl}}"
@@ -1059,13 +1302,22 @@
                 "api",
                 "v1",
                 "quiz",
-                "{{assignmentId}}",
+                "{{quizAssignmentId}}",
                 "my-submission"
               ],
               "query": [],
               "variable": []
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         },
         {
           "name": "Auto-Save Quiz Answer Selection",
@@ -1074,11 +1326,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJjYW90aGFuaGRvbmcuNDExMThAZ21haWwuY29tIiwiYWNjb3VudElkIjo0LCJyb2xlcyI6WyJST0xFX1NUVURFTlQiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDM0MywiZXhwIjoxNzgwMDcxMjQzfQ.QE527YH9olik70tC0pvXSfgRgndGQQyUElEpAytullD9kmGGtxPvmyIeDB_mxUGK",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Invoked as student checks/unchecks an answer option. Saves selection immediately to DB.",
             "url": {
@@ -1107,7 +1361,16 @@
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         },
         {
           "name": "Submit & Auto-Grade Quiz",
@@ -1116,11 +1379,13 @@
             "header": [],
             "auth": {
               "type": "bearer",
-              "bearer": {
-                "key": "token",
-                "value": "eyJhbGciOiJIUzM4NCJ9.eyJzdWIiOiJjYW90aGFuaGRvbmcuNDExMThAZ21haWwuY29tIiwiYWNjb3VudElkIjo0LCJyb2xlcyI6WyJST0xFX1NUVURFTlQiXSwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4MDA3MDM0MywiZXhwIjoxNzgwMDcxMjQzfQ.QE527YH9olik70tC0pvXSfgRgndGQQyUElEpAytullD9kmGGtxPvmyIeDB_mxUGK",
-                "type": "string"
-              }
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{studentToken}}",
+                  "type": "string"
+                }
+              ]
             },
             "description": "Finish the quiz attempt, grade instantly based on correct options, and return score.",
             "url": {
@@ -1140,7 +1405,16 @@
               "query": [],
               "variable": []
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         }
       ]
     },
@@ -1187,7 +1461,16 @@
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         },
         {
           "name": "2. Register Student",
@@ -1229,7 +1512,16 @@
                 }
               }
             }
-          }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": []
+              }
+            }
+          ]
         }
       ]
     }
@@ -1297,6 +1589,16 @@
     },
     {
       "key": "studentToken",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "quizAssignmentId",
+      "value": "",
+      "type": "default"
+    },
+    {
+      "key": "essayAssignmentId",
       "value": "",
       "type": "default"
     }
