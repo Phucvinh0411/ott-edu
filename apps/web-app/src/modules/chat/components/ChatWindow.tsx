@@ -869,7 +869,7 @@ if (conversation.type === "private" && currentUser) {
             const activeTypingUsers = Array.from(typingUsers).filter(
               (userId) =>
                 userId !== currentUser?.id &&
-                userId !== (currentUser as any)?._id,
+                userId !== currentUser?._id,
             );
 
             if (activeTypingUsers.length === 0) return null;
@@ -883,7 +883,7 @@ if (conversation.type === "private" && currentUser) {
                   {activeTypingUsers
                     .map((userId) => {
                       const typingUser = conversation?.participants?.find(
-                        (p) => p.id === userId || (p as any)._id === userId,
+                        (p) => p.id === userId || p._id === userId,
                       );
                       return typingUser?.name || userId;
                     })

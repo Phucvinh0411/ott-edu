@@ -986,7 +986,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
       null;
 
     const targetReceiverId = targetReceiver
-      ? targetReceiver.id || (targetReceiver as any)._id
+      ? targetReceiver.id || targetReceiver._id
       : undefined;
 
     if (!activeConversation && !targetReceiverId) return;
