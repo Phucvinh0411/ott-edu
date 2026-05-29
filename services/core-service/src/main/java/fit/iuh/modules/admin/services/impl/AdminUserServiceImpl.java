@@ -20,6 +20,9 @@ import fit.iuh.modules.auth.repositories.RefreshTokenRepository;
 import fit.iuh.modules.department.repositories.DepartmentRepository;
 import fit.iuh.modules.school.repositories.SchoolRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import fit.iuh.models.AccountStatus;
+import jakarta.persistence.EntityManager;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -27,6 +30,14 @@ import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.DateUtil;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
+import java.io.InputStream;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -34,6 +45,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AdminUserServiceImpl implements AdminUserService {
@@ -46,6 +58,7 @@ public class AdminUserServiceImpl implements AdminUserService {
     private final RefreshTokenRepository refreshTokenRepository;
     private final PasswordEncoder passwordEncoder;
     private final MongoTemplate mongoTemplate;
+    private final EntityManager entityManager;
 
     @Override
     @Transactional(readOnly = true)
@@ -380,5 +393,114 @@ public class AdminUserServiceImpl implements AdminUserService {
 
         // Limit to top 5
         return activeUsers.subList(0, Math.min(5, activeUsers.size()));
+    }
+
+    @Override
+    @Transactional
+    public void importUsersFromExcel(MultipartFile file) {
+        try (InputStream is = file.getInputStream();
+             Workbook workbook = new XSSFWorkbook(is)) {
+            
+            Sheet sheet = workbook.getSheetAt(0);
+
+            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
+                Row row = sheet.getRow(i);
+                if (row == null) continue;
+
+                Cell emailCell = row.getCell(0);
+                Cell firstNameCell = row.getCell(1);
+                Cell lastNameCell = row.getCell(2);
+                Cell roleCell = row.getCell(3);
+                Cell codeCell = row.getCell(4);
+                Cell schoolNameCell = row.getCell(5);
+                Cell departmentNameCell = row.getCell(6);
+
+                String email = getCellValue(emailCell).trim();
+                if (email.isEmpty()) {
+                    continue;
+                }
+
+                if (accountRepository.existsByEmail(email)) {
+                    log.warn("Email đã tồn tại, bỏ qua dòng {}: {}", i, email);
+                    continue; // Skip existing email
+                }
+
+                String firstName = getCellValue(firstNameCell).trim();
+                String lastName = getCellValue(lastNameCell).trim();
+                String roleStr = getCellValue(roleCell).trim();
+                String code = getCellValue(codeCell).trim();
+                String schoolName = getCellValue(schoolNameCell).trim();
+                String departmentName = getCellValue(departmentNameCell).trim();
+
+                Role roleEnum = mapFrontendRoleToBackend(roleStr);
+
+                Account account = Account.builder()
+                        .email(email)
+                        .passwordHash(passwordEncoder.encode("12345678"))
+                        .role(roleEnum)
+                        .isEmailVerified(true)
+                        .status(AccountStatus.AVAILABLE)
+                        .isLocked(false)
+                        .isOnline(false)
+                        .build();
+
+                account = accountRepository.save(account);
+
+                if (code.isEmpty()) {
+                    code = "USER" + account.getId();
+                }
+
+                School foundSchool = null;
+                if (!schoolName.isEmpty()) {
+                    foundSchool = schoolRepository.findByName(schoolName).orElse(null);
+                }
+
+                Department foundDepartment = null;
+                if (!departmentName.isEmpty()) {
+                    foundDepartment = departmentRepository.findByDepartmentName(departmentName).orElse(null);
+                }
+
+                Profile profile = Profile.builder()
+                        .account(account)
+                        .firstName(firstName)
+                        .lastName(lastName)
+                        .code(code)
+                        .school(foundSchool)
+                        .department(foundDepartment)
+                        .build();
+
+                entityManager.persist(profile);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Lỗi khi nhập tài khoản từ Excel: " + e.getMessage(), e);
+        }
+    }
+
+    private String getCellValue(Cell cell) {
+        if (cell == null) return "";
+        switch (cell.getCellType()) {
+            case STRING:
+                return cell.getStringCellValue();
+            case NUMERIC:
+                if (DateUtil.isCellDateFormatted(cell)) {
+                    return cell.getDateCellValue().toString();
+                }
+                double numericValue = cell.getNumericCellValue();
+                if (numericValue == (long) numericValue) {
+                    return String.format("%d", (long) numericValue);
+                } else {
+                    return String.format("%s", numericValue);
+                }
+            case BOOLEAN:
+                return String.valueOf(cell.getBooleanCellValue());
+            case FORMULA:
+                try {
+                    return cell.getStringCellValue();
+                } catch (Exception e) {
+                    return String.valueOf(cell.getNumericCellValue());
+                }
+            default:
+                return cell.toString();
+        }
     }
 }
