@@ -49,13 +49,13 @@
           "script": {
             "type": "text/javascript",
             "exec": [
-              "pm.test('Status is 400 Bad Request', function () {",
-              "    pm.response.to.have.status(400);",
+              "pm.test('Status is 401 Unauthorized', function () {",
+              "    pm.response.to.have.status(401);",
               "});",
               "",
               "pm.test('Response contains expired/invalid OTP error message', function () {",
               "    var jsonData = pm.response.json();",
-              "    pm.expect(jsonData.message).to.include('Phiên xác thực email không hợp lệ hoặc đã hết hạn!');",
+              "    pm.expect(jsonData.message).to.include('Token không hợp lệ hoặc đã hết hạn.');",
               "});"
             ]
           }
@@ -91,7 +91,7 @@
               "",
               "pm.test('Response contains wrong credentials error message', function () {",
               "    var jsonData = pm.response.json();",
-              "    pm.expect(jsonData.message).to.include('Email hoặc mật khẩu không đúng.');",
+              "    pm.expect(jsonData.message).to.include('Bad credentials');",
               "});"
             ]
           }
