@@ -35,7 +35,7 @@ interface ChatLayoutProps {
 export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
   // Mobile specific state to track which view is active
   const [activeView, setActiveView] = useState<"sidebar" | "chat">("sidebar");
- const socket = useSocket();
+  const socket = useSocket();
   const [currentMode, setCurrentMode] = useState<ChatMode>("private");
   const [searchQuery, setSearchQuery] = useState("");
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -99,6 +99,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
   const [typingUsers, setTypingUsers] = useState<Record<string, Record<string, string>>>({});
 
   const socketRef = useRef<Socket | null>(null);
+  const typingTimeoutsRef = useRef<Record<string, any>>({});
   const activeConversationIdRef = useRef<string | null>(null);
   const isCallActiveRef = useRef(false);
   const conversationsRef = useRef<Conversation[]>([]);
@@ -135,9 +136,9 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
 
     try {
       const { chatApiClient } = await import("../axiosClient");
-      
+
       // 🚀 TẠO BIẾN TẠM ĐỂ HỨNG ID MONGODB CHUẨN XỊN
-      let realMongoId = currentUserId; 
+      let realMongoId = currentUserId;
 
       try {
         const { data: meRes } = await chatApiClient.get<{
@@ -255,18 +256,41 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
       });
 
       // --- KẾT HỢP: LOGIC TYPING CỦA TEAM ---
-      const handleTypingStart = (data: { conversationId: string; userId: string; userName: string }) => {
+      const handleTypingStart = (data: { conversationId: string; userId: string; userName?: string }) => {
         if (data.userId === chatMongoId) return;
+
+        // Clear existing timeout for this user in this conversation
+        const timeoutKey = `${data.conversationId}_${data.userId}`;
+        if (typingTimeoutsRef.current[timeoutKey]) {
+          clearTimeout(typingTimeoutsRef.current[timeoutKey]);
+        }
+
+        const conv = conversationsRef.current.find((c) => c.id === data.conversationId);
+        const participant = conv?.participants.find((p) => p.id === data.userId);
+        const displayName = participant?.name || data.userName || 'Người dùng';
+
         setTypingUsers((prev) => ({
           ...prev,
           [data.conversationId]: {
             ...(prev[data.conversationId] || {}),
-            [data.userId]: data.userName || 'Người dùng',
+            [data.userId]: displayName,
           },
         }));
+
+        // Automatically stop typing indicator after 3 seconds of inactivity
+        typingTimeoutsRef.current[timeoutKey] = setTimeout(() => {
+          handleTypingStop({ conversationId: data.conversationId, userId: data.userId });
+          delete typingTimeoutsRef.current[timeoutKey];
+        }, 3000);
       };
 
       const handleTypingStop = (data: { conversationId: string; userId: string }) => {
+        const timeoutKey = `${data.conversationId}_${data.userId}`;
+        if (typingTimeoutsRef.current[timeoutKey]) {
+          clearTimeout(typingTimeoutsRef.current[timeoutKey]);
+          delete typingTimeoutsRef.current[timeoutKey];
+        }
+
         setTypingUsers((prev) => {
           if (!prev[data.conversationId] || !prev[data.conversationId][data.userId]) return prev;
           const nextConvTyping = { ...prev[data.conversationId] };
@@ -361,42 +385,55 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
       socket.on('callEnded', handleCallEnded);
       socket.on('videoCallEnded', handleCallEnded);
       // 1. Khi có người gửi lời mời kết bạn MỚI (Khớp với backend: "friend_status_updated")
-      socket.on('friend_status_updated', (data) => { 
+      socket.on('friend_status_updated', (data) => {
         console.log("🔥 [Socket] Trạng thái bạn bè thay đổi (có thể là kết bạn mới)!", data);
-        DeviceEventEmitter.emit('SYNC_FRIENDS_DATA'); 
+        DeviceEventEmitter.emit('SYNC_FRIENDS_DATA');
+      });
+
+      // Lời mời kết bạn mới
+      socket.on('new_friend_request', (data) => {
+        console.log("🔥 [Socket] Có lời mời kết bạn mới!", data);
+        DeviceEventEmitter.emit('SYNC_FRIENDS_DATA');
       });
 
       // 2. Khi người ta ĐỒNG Ý kết bạn (Khớp với backend: "friend_request_accepted")
       socket.on('friend_request_accepted', (data) => {
         console.log("🔥 [Socket] Có người đồng ý kết bạn nè!", data);
-        DeviceEventEmitter.emit('SYNC_FRIENDS_DATA'); 
+        DeviceEventEmitter.emit('SYNC_FRIENDS_DATA');
         loadConversations();
       });
-      
+
       // 3. Khi người ta TỪ CHỐI kết bạn (Khớp với backend: "friend_request_rejected")
       socket.on('friend_request_rejected', (data) => {
         console.log("🔥 [Socket] Nó từ chối kết bạn rồi!", data);
-        DeviceEventEmitter.emit('SYNC_FRIENDS_DATA'); 
+        DeviceEventEmitter.emit('SYNC_FRIENDS_DATA');
       });
 
-      // 4. Nghe sự kiện: Ai đó vừa tạo nhóm mới và có tên mình trong đó
+      // 4. Khi người ta HỦY kết bạn (Khớp với backend: "unfriended")
+      socket.on('unfriended', (data) => {
+        console.log("🔥 [Socket] Hủy kết bạn rồi!", data);
+        DeviceEventEmitter.emit('SYNC_FRIENDS_DATA');
+        loadConversations();
+      });
+
+      // 5. Nghe sự kiện: Ai đó vừa tạo nhóm mới và có tên mình trong đó
       socket.on('new_group_created', (data) => {
         console.log("🔥 [Socket] Vừa được kéo vào nhóm mới tạo nè!", data);
         // Load lại Sidebar để nhóm mới hiện ra ngay lập tức
-        loadConversations(); 
+        loadConversations();
       });
 
       // 5. Nghe sự kiện: Mình vừa bị Admin add vào một nhóm đã có sẵn
       socket.on('added_to_group', (data) => {
         console.log("🔥 [Socket] Vừa bị nhét vào nhóm cũ!", data);
-        loadConversations(); 
+        loadConversations();
       });
 
       // 6. Nghe sự kiện: Nhóm mình đang tham gia vừa có thành viên mới chui vào
       socket.on('group_updated', (data) => {
         console.log("🔥 [Socket] Nhóm có người mới vào / người cũ ra!", data);
         // Load lại để cập nhật số lượng thành viên (hoặc tên nhóm)
-        loadConversations(); 
+        loadConversations();
       });
 
       // 7. Nghe sự kiện: Cập nhật cấu hình trò chuyện (realtime chặn nhắn tin)
@@ -415,6 +452,10 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
     setupSocket();
 
     return () => {
+      // Clear typing timeouts
+      Object.values(typingTimeoutsRef.current).forEach(clearTimeout);
+      typingTimeoutsRef.current = {};
+
       if (socket) {
         socket.off("newMessage");
         socket.off("messageRevoked");
@@ -425,6 +466,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
         socket.off("friend_status_updated");
         socket.off("friend_request_rejected");
         socket.off("friend_request_accepted");
+        socket.off("unfriended");
+        socket.off("new_friend_request");
         socket.off('incomingGroupMediaCall');
         socket.off('callEnded');
         socket.off('videoCallEnded');
@@ -524,18 +567,18 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
         prev.map((c) =>
           c.id === conversation.id
             ? {
-                ...c,
-                ownerId: roleData.ownerId,
-                myRole: roleData.myRole,
-                canManageGroup: roleData.canManageGroup,
-              }
+              ...c,
+              ownerId: roleData.ownerId,
+              myRole: roleData.myRole,
+              canManageGroup: roleData.canManageGroup,
+            }
             : c,
         ),
       );
 
       const owner = roleData.ownerId
         ? conversation.participants.find((p) => p.id === roleData.ownerId) ||
-          null
+        null
         : null;
       setGroupOwnerTarget(owner);
     } catch (err) {
@@ -543,8 +586,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
       setGroupOwnerTarget(
         conversation.ownerId
           ? conversation.participants.find(
-              (participant) => participant.id === conversation.ownerId,
-            ) || null
+            (participant) => participant.id === conversation.ownerId,
+          ) || null
           : null,
       );
     }
@@ -561,11 +604,11 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
           prev.map((conversation) =>
             conversation.id === activeConversationId
               ? {
-                  ...conversation,
-                  participants: conversation.participants.filter(
-                    (participant) => participant.id !== memberId,
-                  ),
-                }
+                ...conversation,
+                participants: conversation.participants.filter(
+                  (participant) => participant.id !== memberId,
+                ),
+              }
               : conversation,
           ),
         );
@@ -664,7 +707,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
           text,
           targetReceiver?.id,
           // 🚀 VÁ LỖI MẤT TIN NHẮN: Truyền ID phòng chat vào đây
-          activeConversation?.id, 
+          activeConversation?.id,
           attachments,
           replyToId,
         );
@@ -720,14 +763,14 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
     conversations.find((c) => c.id === activeConversationId) ||
     (draftReceiver
       ? {
-          id: `draft_${draftReceiver.id}`,
-          name: draftReceiver.name,
-          type: "private" as const,
-          participants: [currentUser as User, draftReceiver],
-          lastMessage: null,
-          unreadCount: 0,
-          avatarUrl: draftReceiver.avatarUrl,
-        }
+        id: `draft_${draftReceiver.id}`,
+        name: draftReceiver.name,
+        type: "private" as const,
+        participants: [currentUser as User, draftReceiver],
+        lastMessage: null,
+        unreadCount: 0,
+        avatarUrl: draftReceiver.avatarUrl,
+      }
       : null);
 
   const privatePeer = React.useMemo(() => {
@@ -770,7 +813,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
       .forEach((conv) => {
         conv.participants.forEach((p) => {
           // 🚀 LOẠI TRỪ BẢN THÂN DÙNG chatMongoId
-          if (p.id === chatMongoId) return; 
+          if (p.id === chatMongoId) return;
           if (privatePeerIds.has(p.id)) return;
           map.set(p.id, p);
         });
@@ -791,7 +834,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
       .slice(0, 20);
   }, [conversations, chatMongoId, searchQuery]);
 
-    const handleStartVideoCall = useCallback(() => {
+  const handleStartVideoCall = useCallback(() => {
     if (!activeConversation || activeConversation.id.startsWith('draft_')) return;
     setCallConversationId(activeConversation.id);
     setCallInitiatorUserId(chatMongoId || currentUserId);
@@ -922,6 +965,8 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
               onStartVideoCall={isPrivateConversation ? handleStartVideoCall : undefined}
               onStartGroupCall={!isPrivateConversation ? handleStartGroupCall : undefined}
               isCallActive={isGroupCallActive}
+              typingUsers={activeConversationId ? typingUsers[activeConversationId] || {} : {}}
+              onTyping={handleTyping}
             />
           </Modal>
 

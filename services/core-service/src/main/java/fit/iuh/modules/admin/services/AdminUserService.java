@@ -20,4 +20,5 @@ public interface AdminUserService {
     UserSummaryResponse getUserSummary();
     List<UserGrowthPoint> getUserGrowthStats();
     List<TopActiveUser> getTopActiveUsers();
+    void importUsersFromExcel(org.springframework.web.multipart.MultipartFile file);
 }
