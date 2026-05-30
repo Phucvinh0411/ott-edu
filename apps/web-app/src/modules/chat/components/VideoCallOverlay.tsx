@@ -14,7 +14,6 @@ import {
   Video,
   X,
   Volume2,
-  VolumeX,
 } from "lucide-react";
 import {
   ActiveVideoCall,

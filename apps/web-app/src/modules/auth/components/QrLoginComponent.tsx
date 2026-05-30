@@ -52,7 +52,7 @@ export default function QrLoginComponent() {
           }
         }
       }, 1000);
-    } catch (err: any) {
+    } catch (err) {
       console.error("Lỗi khởi tạo QR code:", err);
       setError("Không thể tải mã QR. Vui lòng thử lại.");
       setIsLoading(false);
@@ -78,7 +78,7 @@ export default function QrLoginComponent() {
   }, [socket, sessionId]);
 
   // Lắng nghe sự kiện login thành công từ socket
-  useSocketListener(socket, "qr_login_success", async (loginResponse: any) => {
+  useSocketListener(socket, "qr_login_success", async (loginResponse: { accessToken: string; user?: { email?: string } }) => {
     try {
       console.log("🎉 [Socket] Nhận sự kiện đăng nhập QR thành công:", loginResponse);
       setIsSuccess(true);
@@ -94,7 +94,7 @@ export default function QrLoginComponent() {
 
       // 3. Thiết lập thông tin Lớp học (classId) và Email vào Cookie để đồng bộ
       const latestUser = await getCurrentUser();
-      const typedUser = latestUser as any;
+      const typedUser = latestUser as { email?: string; roles?: string[]; teams?: Array<{ id: number | string }> } | null;
       const userTeams = typedUser?.teams || [];
       const userClassId = userTeams.length > 0 ? userTeams[0].id.toString() : "60d5ecb8b3112a445c742301";
       const userEmail = typedUser?.email || loginResponse.user?.email;
@@ -121,7 +121,7 @@ export default function QrLoginComponent() {
         }
       }, 1500);
 
-    } catch (err: any) {
+    } catch (err) {
       console.error("Lỗi xử lý đăng nhập QR thành công:", err);
       setError("Đăng nhập thất bại. Vui lòng quét lại.");
     }
