@@ -102,13 +102,14 @@ const styles = StyleSheet.create({
   overlay: {
     flex: 1,
     backgroundColor: "rgba(2, 6, 23, 0.82)",
-    justifyContent: "flex-end",
+    justifyContent: "center",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingBottom: Platform.OS === "ios" ? 44 : 24,
+    paddingHorizontal: 24,
+    paddingVertical: 24,
   },
   card: {
     width: "100%",
+    maxWidth: 360,
     borderRadius: 32,
     backgroundColor: "#0f172a", // Deep elegant slate
     paddingHorizontal: 24,

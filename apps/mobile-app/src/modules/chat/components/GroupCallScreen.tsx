@@ -192,32 +192,32 @@ function ControlButton({
 function calcGridLayout(count: number, screenWidth: number, screenHeight: number) {
   const padding = 12;
   const gap = 10;
-  
+
   if (count <= 1) {
-    return { 
-      columns: 1, 
-      tileWidth: screenWidth - padding * 2, 
-      tileHeight: Math.min(screenHeight - 340, 520) 
+    return {
+      columns: 1,
+      tileWidth: screenWidth - padding * 2,
+      tileHeight: Math.min(screenHeight - 340, 520)
     };
   }
   if (count === 2) {
-    return { 
-      columns: 1, 
-      tileWidth: screenWidth - padding * 2, 
-      tileHeight: (screenHeight - 360) / 2 
+    return {
+      columns: 1,
+      tileWidth: screenWidth - padding * 2,
+      tileHeight: (screenHeight - 360) / 2
     };
   }
   if (count <= 4) {
-    return { 
-      columns: 2, 
-      tileWidth: (screenWidth - padding * 2 - gap) / 2, 
-      tileHeight: 220 
+    return {
+      columns: 2,
+      tileWidth: (screenWidth - padding * 2 - gap) / 2,
+      tileHeight: 220
     };
   }
-  return { 
-    columns: 2, 
-    tileWidth: (screenWidth - padding * 2 - gap) / 2, 
-    tileHeight: 170 
+  return {
+    columns: 2,
+    tileWidth: (screenWidth - padding * 2 - gap) / 2,
+    tileHeight: 170
   };
 }
 
@@ -263,6 +263,19 @@ export function GroupCallScreen({
   const [hasJoined, setHasJoined] = useState(false);
   const [confirmLeave, setConfirmLeave] = useState(false);
   const isLeavingRef = useRef(false);
+  const wasAnsweredRef = useRef(false);
+
+  useEffect(() => {
+    if (!hasJoined) {
+      wasAnsweredRef.current = false;
+    }
+  }, [hasJoined]);
+
+  useEffect(() => {
+    if (remoteParticipants.length > 0) {
+      wasAnsweredRef.current = true;
+    }
+  }, [remoteParticipants.length]);
 
   // Tự động join khi component mount
   useEffect(() => {
@@ -287,6 +300,21 @@ export function GroupCallScreen({
     if (!leaveSignal) return;
     executeLeave();
   }, [leaveSignal, executeLeave]);
+
+  // 20-second timeout if call is unanswered (no remote participants join)
+  useEffect(() => {
+    if (!hasJoined || isLeavingRef.current || wasAnsweredRef.current) return;
+
+    if ((callStatus === "ready" || callStatus === "connected") && remoteParticipants.length === 0) {
+      const timer = setTimeout(() => {
+        if (wasAnsweredRef.current) return;
+        console.log("[GroupCallScreen] Call unanswered after 20s. Auto terminating...");
+        handleLeave();
+      }, 20_000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [hasJoined, callStatus, remoteParticipants.length, handleLeave]);
 
   useEffect(() => {
     if (!hasJoined) return;
@@ -401,7 +429,7 @@ export function GroupCallScreen({
 
       {/* ── Local PIP (FaceTime-like Floating Window) ── */}
       {localStreamURL && callType !== "audio" && (
-        <View style={styles.pip}>
+        <View style={styles.pip} collapsable={false}>
           {RTCView ? (
             <RTCView
               streamURL={localStreamURL}
@@ -435,7 +463,7 @@ export function GroupCallScreen({
         />
         <Text style={styles.statusText}>
           {callStatus === "joining" && "Đang thiết lập cổng..."}
-          {callStatus === "ready" && "Đã sẵn sàng - Chờ mọi người"}
+          {callStatus === "ready" && "Đã sẵn sàng"}
           {callStatus === "connected" && "Đường truyền bảo mật đã kết nối"}
           {callStatus === "error" && "Không thể kết nối máy chủ SFU"}
           {callStatus === "idle" && "Mở kết nối"}
@@ -497,7 +525,7 @@ export function GroupCallScreen({
             <View style={styles.modalActions}>
               <Pressable
                 style={({ pressed }) => [
-                  styles.modalBtn, 
+                  styles.modalBtn,
                   styles.modalBtnCancel,
                   pressed && styles.buttonPressed
                 ]}
@@ -507,7 +535,7 @@ export function GroupCallScreen({
               </Pressable>
               <Pressable
                 style={({ pressed }) => [
-                  styles.modalBtn, 
+                  styles.modalBtn,
                   styles.modalBtnLeave,
                   pressed && styles.buttonPressed
                 ]}
@@ -698,6 +726,8 @@ const styles = StyleSheet.create({
   tileVideo: {
     width: "100%",
     height: "100%",
+    borderRadius: 22,
+    overflow: "hidden",
   },
   tileVideoPlaceholder: {
     flex: 1,
@@ -765,15 +795,16 @@ const styles = StyleSheet.create({
   // PIP (FaceTime Floating Window)
   pip: {
     position: "absolute",
-    bottom: Platform.OS === "android" ? 130 : 148,
+    bottom: Platform.OS === "android" ? 150 : 168,
     right: 18,
     width: PIP_WIDTH,
     height: PIP_HEIGHT,
-    borderRadius: 24,
     overflow: "hidden",
+    backgroundColor: "#020617",
     borderWidth: 1.5,
     borderColor: "rgba(255,255,255,0.15)",
-    elevation: 8,
+    zIndex: 999, // Guaranteed stacking order on top of tiles
+    elevation: 12, // High elevation on Android
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.45,
@@ -782,6 +813,7 @@ const styles = StyleSheet.create({
   pipVideo: {
     width: "100%",
     height: "100%",
+    overflow: "hidden",
   },
   pipPlaceholder: {
     flex: 1,
