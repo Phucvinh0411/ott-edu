@@ -899,6 +899,18 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
     setIncomingCallRequest(null);
   }, [activeConversation, conversations, incomingCallRequest]);
 
+  // 20-second timeout to auto-decline unanswered incoming calls on mobile
+  useEffect(() => {
+    if (!incomingCallRequest) return;
+
+    const timer = setTimeout(() => {
+      console.log("[ChatLayout] Incoming call unanswered for 20s. Auto declining...");
+      handleDeclineIncomingCall();
+    }, 20_000);
+
+    return () => clearTimeout(timer);
+  }, [incomingCallRequest, handleDeclineIncomingCall]);
+
   const handleRequestLeaveCall = useCallback(() => {
     if (!isGroupCallActive) return;
     setLeaveSignal((prev) => prev + 1);
