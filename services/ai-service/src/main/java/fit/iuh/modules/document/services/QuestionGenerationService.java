@@ -5,8 +5,6 @@ import fit.iuh.modules.document.entities.DocumentChunk;
 import fit.iuh.modules.document.entities.QuestionType;
 import fit.iuh.modules.document.repositories.DocumentChunkRepository;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.vectorstore.SearchRequest;
-import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -22,64 +20,65 @@ import java.util.stream.Collectors;
 public class QuestionGenerationService {
 
     private final ChatClient chatClient;
-    private final VectorStore vectorStore;
     private final DocumentChunkRepository chunkRepository;
 
     // Prompt templates
     private static final String MC_PROMPT = """
-            Bạn là một giáo viên chuyên nghiệp. Dựa trên nội dung sau đây,
-            hãy tạo CHÍNH XÁC {questionCount} câu hỏi trắc nghiệm (multiple choice).
+            Bạn là một chuyên gia khảo thí khắt khe. Dựa trên nội dung tài liệu sau đây, hãy tạo CHÍNH XÁC {questionCount} câu hỏi trắc nghiệm.
 
             === NỘI DUNG TÀI LIỆU ===
             {context}
             === KẾT THÚC NỘI DUNG ===
 
-            YÊU CẦU NGHIÊM NGẶT:
-            1. Tạo ra CHÍNH XÁC {questionCount} câu hỏi trắc nghiệm (tương ứng với {questionCount} đối tượng trong JSON array). Tuyệt đối không sinh thiếu và không sinh thừa.
-            2. Trường "question": Bắt buộc phải là một câu hỏi có dấu chấm hỏi (?), không được copy nguyên xi câu trần thuật từ tài liệu.
-            3. Trường "options": Bắt buộc phải chứa 4 chuỗi văn bản, MỖI CHUỖI LÀ NỘI DUNG CHI TIẾT CỦA MỘT ĐÁP ÁN (phải có tiền tố A., B., C., D.). Tuyệt đối KHÔNG ĐƯỢC chỉ trả về ["A", "B", "C", "D"].
-            4. Trường "correctAnswer": Chỉ ghi 1 ký tự duy nhất (A, B, C hoặc D).
-            5. Trường "explanation": Giải thích ngắn gọn vì sao đáp án đó đúng.
-            6. Chỉ sử dụng kiến thức có trong tài liệu được cung cấp.
+            YÊU CẦU TỐI THƯỢNG (VI PHẠM SẼ BỊ LOẠI BỎ KẾT QUẢ):
+            1. ĐỒNG BỘ NGÔN NGỮ: Nếu tài liệu trên là TIẾNG ANH, toàn bộ JSON (câu hỏi, đáp án, giải thích) PHẢI là TIẾNG ANH. Nếu tài liệu TIẾNG VIỆT, toàn bộ PHẢI là TIẾNG VIỆT.
+            2. CHỐNG LẶP LẠI (QUAN TRỌNG NHẤT): Mỗi câu hỏi phải khai thác một khái niệm HOÀN TOÀN KHÁC NHAU trong tài liệu. TUYỆT ĐỐI KHÔNG sử dụng lại bộ đáp án của câu trước cho câu sau. TUYỆT ĐỐI KHÔNG hỏi lại một ý đã hỏi.
+            3. ĐỘ DÀI ĐÁP ÁN: Các đáp án (options) PHẢI LÀ CỤM TỪ NGẮN (tối đa 10 từ). TUYỆT ĐỐI KHÔNG copy nguyên câu văn dài làm đáp án.
+               - MẪU ĐÁP ÁN TỐT: "A. Virtual teams", "B. Outsourcing", "C. Globalization".
+               - MẪU ĐÁP ÁN XẤU (CẤM DÙNG): "A. Virtual teams are groups of individuals who work across time..."
+            4. SỰ THẬT TỪ TÀI LIỆU: Chỉ hỏi những gì có trong đoạn tài liệu. Các đáp án nhiễu (sai) phải được lấy từ các khái niệm khác CÓ TRONG TÀI LIỆU để gây nhầm lẫn, không được tự bịa chữ.
+            5. LỜI GIẢI THÍCH TRÁCH NHIỆM: Phải trích dẫn hoặc giải thích rõ tại sao đáp án đó đúng. TUYỆT ĐỐI KHÔNG sinh các câu vô nghĩa như "Explanation for the first question".
+            6. CÚ PHÁP JSON: KHÔNG dùng dấu ngoặc kép (") bên trong nội dung các trường. Dùng dấu nháy đơn ('). Sinh chính xác {questionCount} đối tượng.
 
-            VÍ DỤ ĐỊNH DẠNG MONG MUỐN:
+            VÍ DỤ CẤU TRÚC JSON:
             [
               {{
-                "question": "Kiến trúc Flynn phân loại máy tính song song dựa trên yếu tố nào?",
+                "question": "Nội dung câu hỏi ngắn gọn?",
                 "options": [
-                  "A. Tốc độ xung nhịp của CPU",
-                  "B. Sự đa dạng của luồng lệnh và luồng dữ liệu",
-                  "C. Dung lượng bộ nhớ RAM",
-                  "D. Băng thông mạng lưới"
+                  "A. Cụm từ 1",
+                  "B. Cụm từ 2",
+                  "C. Cụm từ 3",
+                  "D. Cụm từ 4"
                 ],
                 "correctAnswer": "B",
-                "explanation": "Theo tài liệu, kiến trúc Flynn (1966) dựa trên sự đa dạng của luồng lệnh và luồng dữ liệu quan sát được bởi CPU."
+                "explanation": "Giải thích chi tiết lý do B đúng dựa trên tài liệu."
               }}
             ]
             """;
 
     private static final String ESSAY_PROMPT = """
-            Bạn là một giáo viên chuyên nghiệp. Dựa trên nội dung sau đây,
-            hãy tạo CHÍNH XÁC {questionCount} câu hỏi tự luận (essay).
+            Bạn là một giáo viên chuyên nghiệp. Dựa trên nội dung sau đây, hãy tạo CHÍNH XÁC {questionCount} câu hỏi tự luận.
 
             === NỘI DUNG TÀI LIỆU ===
             {context}
             === KẾT THÚC NỘI DUNG ===
 
-            YÊU CẦU NGHIÊM NGẶT:
-            1. Tạo ra CHÍNH XÁC {questionCount} câu hỏi tự luận (tương ứng với {questionCount} đối tượng trong JSON array). Tuyệt đối không sinh thiếu và không sinh thừa.
-            2. Trường "question": Bắt buộc phải là một câu hỏi yêu cầu phân tích, tổng hợp kiến thức.
-            3. Trường "suggestedAnswer": Cung cấp gợi ý trả lời chi tiết.
-            4. Trường "keyPoints": Mảng chứa các ý chính cần có trong câu trả lời.
-            5. Câu hỏi bám sát nội dung, không suy diễn ngoài tài liệu.
-            6. Trả lời bằng tiếng Việt.
+            YÊU CẦU TỐI THƯỢNG:
+            1. ĐỒNG BỘ NGÔN NGỮ: Nếu tài liệu bằng TIẾNG ANH, tạo câu hỏi và gợi ý bằng TIẾNG ANH. Nếu bằng TIẾNG VIỆT, dùng TIẾNG VIỆT.
+            2. KHAI THÁC ĐA DẠNG: Mỗi câu hỏi tự luận phải tập trung vào một khía cạnh hoặc chương khác nhau của tài liệu. KHÔNG lặp lại nội dung đã hỏi.
+            3. TRUNG THÀNH VỚI TÀI LIỆU: Gợi ý trả lời (suggestedAnswer) và các ý chính (keyPoints) phải được tóm tắt trực tiếp từ tài liệu, không tự biên soạn kiến thức ngoài.
+            4. CÚ PHÁP JSON: Tuyệt đối không sử dụng dấu ngoặc kép (") bên trong nội dung các trường để tránh lỗi Parse JSON. Dùng dấu nháy đơn (').
+            5. SỐ LƯỢNG: Tạo ra CHÍNH XÁC {questionCount} câu hỏi tự luận.
+            
+            Các trường cần có trong mỗi đối tượng JSON:
+            - "question": Câu hỏi yêu cầu phân tích, tổng hợp.
+            - "suggestedAnswer": Gợi ý trả lời chi tiết, thực tế.
+            - "keyPoints": Mảng (Array) chứa các ý chính (cụm từ ngắn) cần có.
             """;
 
     public QuestionGenerationService(ChatClient chatClient,
-                                      VectorStore vectorStore,
                                       DocumentChunkRepository chunkRepository) {
         this.chatClient = chatClient;
-        this.vectorStore = vectorStore;
         this.chunkRepository = chunkRepository;
     }
 
@@ -92,106 +91,98 @@ public class QuestionGenerationService {
     @Async
     public void generateQuestionsAsync(QuestionGenerationRequest request, SseEmitter emitter) {
         try {
-            // 1. Emit start event
-            sendSseEvent(emitter, "started", Map.of(
-                    "message", "Bắt đầu xử lý yêu cầu sinh câu hỏi..."
-            ));
+            sendSseEvent(emitter, "started", Map.of("message", "Bắt đầu khởi tạo ngân hàng câu hỏi..."));
 
-            // 2. Lấy chunks của document → build context query
             UUID docId = request.getDocumentId();
-            List<DocumentChunk> chunks = chunkRepository.findByDocumentIdOrderByChunkIndex(docId);
-            if (chunks.isEmpty()) {
+            List<DocumentChunk> allChunks = chunkRepository.findByDocumentIdOrderByChunkIndex(docId);
+            
+            if (allChunks.isEmpty()) {
                 sendSseEvent(emitter, "error", Map.of("message", "Không tìm thấy nội dung tài liệu."));
                 emitter.complete();
                 return;
             }
 
-            sendSseEvent(emitter, "progress", Map.of(
-                    "step", 1,
-                    "message", "Đang tìm kiếm nội dung liên quan..."
-            ));
-
-            // 3. Similarity Search qua PgVectorStore
-            String searchQuery = buildSearchQuery(chunks);
-            var searchResults = vectorStore.similaritySearch(
-                    SearchRequest.builder()
-                            .query(searchQuery)
-                            .topK(Math.min(chunks.size(), 10))
-                            .similarityThreshold(0.5)
-                            .build()
-            );
-
-            // 4. Build context từ search results
-            String context = searchResults.stream()
-                    .map(doc -> doc.getText())
-                    .collect(Collectors.joining("\n\n---\n\n"));
-
-            int totalNeeded = request.getQuestionCount();
-            int batchSize = 10;
-            int numBatches = (int) Math.ceil((double) totalNeeded / batchSize);
-            java.util.ArrayList<Object> allQuestions = new java.util.ArrayList<>();
-
-            // 5. Chọn prompt template theo question type
+            int totalQuestions = request.getQuestionCount(); 
+            
+            // Chọn prompt template dựa trên loại câu hỏi
             String promptTemplate = switch (request.getQuestionType()) {
                 case MULTIPLE_CHOICE -> MC_PROMPT;
                 case ESSAY -> ESSAY_PROMPT;
             };
 
-            // 6. Gọi ChatClient (GPU) theo từng lô (Batching)
-            for (int batch = 0; batch < numBatches; batch++) {
-                int currentBatchCount = Math.min(batchSize, totalNeeded - batch * batchSize);
-                int startIdx = batch * batchSize + 1;
-                int endIdx = startIdx + currentBatchCount - 1;
+            int totalChunks = allChunks.size();
+            int generatedCount = 0;
+            int iteration = 0;
+
+            // VÒNG LẶP PHÂN BỔ ĐỘNG
+            while (generatedCount < totalQuestions && iteration < totalChunks) {
+                
+                DocumentChunk currentChunk;
+                int questionsToAskForThisChunk = 1;
+
+                if (totalQuestions <= totalChunks) {
+                    // TRƯỜNG HỢP 1: Tài liệu dài, ít câu -> Dùng Striding (Nhảy cóc)
+                    int step = totalChunks / totalQuestions;
+                    currentChunk = allChunks.get(iteration * step);
+                } else {
+                    // TRƯỜNG HỢP 2: Tài liệu ngắn, nhiều câu -> Dùng Batching (Vắt kiệt từng chunk)
+                    currentChunk = allChunks.get(iteration);
+                    int baseQuestions = totalQuestions / totalChunks;
+                    int remainder = totalQuestions % totalChunks;
+                    // Chia đều phần dư cho các chunk đầu tiên
+                    questionsToAskForThisChunk = baseQuestions + (iteration < remainder ? 1 : 0);
+                }
+
+                String context = currentChunk.getContent();
 
                 sendSseEvent(emitter, "progress", Map.of(
-                        "step", 2,
-                        "message", String.format("Đang sinh câu hỏi từ %d đến %d...", startIdx, endIdx)
+                        "step", generatedCount + 1,
+                        "message", String.format("Đang xử lý tài liệu - Soạn lô câu hỏi từ đoạn %d/%d (Tiến độ: %d/%d)...", 
+                                                 iteration + 1, totalChunks, generatedCount, totalQuestions)
                 ));
 
-                // Phân bổ ngữ cảnh động (sliding window) theo từng lô để tối đa hóa độ phủ tài liệu
-                int chunkOffset = (batch * 3) % Math.max(1, searchResults.size());
-                String contextForBatch = searchResults.stream()
-                        .skip(chunkOffset)
-                        .limit(4)
-                        .map(doc -> doc.getText())
-                        .collect(Collectors.joining("\n\n---\n\n"));
+                Object batchResult = null;
+                int maxRetries = 2; 
+                int attempts = 0;
+                final int finalQuestionsCount = questionsToAskForThisChunk;
 
-                if (contextForBatch.isBlank()) {
-                    contextForBatch = context;
-                }
-
-                final String finalContext = contextForBatch;
-
-                if (request.getQuestionType() == QuestionType.MULTIPLE_CHOICE) {
-                    List<MultipleChoiceQuestion> batchQuestions = chatClient.prompt()
-                            .user(u -> u.text(promptTemplate)
-                                    .param("questionCount", String.valueOf(currentBatchCount))
-                                    .param("context", finalContext))
-                            .call()
-                            .entity(new ParameterizedTypeReference<List<MultipleChoiceQuestion>>() {});
-                    if (batchQuestions != null) {
-                        allQuestions.addAll(batchQuestions);
-                    }
-                } else {
-                    List<EssayQuestion> batchQuestions = chatClient.prompt()
-                            .user(u -> u.text(promptTemplate)
-                                    .param("questionCount", String.valueOf(currentBatchCount))
-                                    .param("context", finalContext))
-                            .call()
-                            .entity(new ParameterizedTypeReference<List<EssayQuestion>>() {});
-                    if (batchQuestions != null) {
-                        allQuestions.addAll(batchQuestions);
+                while (attempts < maxRetries && batchResult == null) {
+                    try {
+                        if (request.getQuestionType() == QuestionType.MULTIPLE_CHOICE) {
+                            batchResult = chatClient.prompt()
+                                    .user(u -> u.text(promptTemplate)
+                                            .param("questionCount", String.valueOf(finalQuestionsCount))
+                                            .param("context", context))
+                                    .call()
+                                    .entity(new ParameterizedTypeReference<List<MultipleChoiceQuestion>>() {});
+                        } else {
+                            batchResult = chatClient.prompt()
+                                    .user(u -> u.text(promptTemplate)
+                                            .param("questionCount", String.valueOf(finalQuestionsCount))
+                                            .param("context", context))
+                                    .call()
+                                    .entity(new ParameterizedTypeReference<List<EssayQuestion>>() {});
+                        }
+                    } catch (Exception parseException) {
+                        attempts++;
+                        System.err.println("AI sinh lỗi JSON ở iteration " + iteration + ", đang thử lại... (Lần " + attempts + ")");
                     }
                 }
+
+                if (batchResult != null) {
+                    sendSseEvent(emitter, "partial_result", Map.of(
+                            "documentId", docId,
+                            "questionType", request.getQuestionType(),
+                            "questions", batchResult
+                    ));
+                    generatedCount += questionsToAskForThisChunk;
+                }
+
+                iteration++;
+                Thread.sleep(500); // Xả VRAM
             }
 
-            // 7. Emit result
-            sendSseEvent(emitter, "result", Map.of(
-                    "documentId", docId,
-                    "questionType", request.getQuestionType(),
-                    "questions", allQuestions
-            ));
-
+            sendSseEvent(emitter, "completed", Map.of("message", "Đã sinh thành công " + generatedCount + " câu hỏi."));
             emitter.complete();
 
         } catch (Exception e) {
@@ -203,14 +194,6 @@ public class QuestionGenerationService {
     }
 
     // ── Helper methods ──
-
-    private String buildSearchQuery(List<DocumentChunk> chunks) {
-        // Dùng nội dung 3 chunk đầu làm query hint cho similarity search
-        return chunks.stream()
-                .limit(3)
-                .map(DocumentChunk::getContent)
-                .collect(Collectors.joining(" "));
-    }
 
     private void sendSseEvent(SseEmitter emitter, String eventName, Object data) throws IOException {
         emitter.send(SseEmitter.event()

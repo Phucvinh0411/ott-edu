@@ -55,7 +55,7 @@ public class DocumentController {
      */
     @PostMapping(value = "/generate-questions", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public SseEmitter generateQuestions(@Valid @RequestBody QuestionGenerationRequest request) {
-        // Timeout 2 phút cho SSE connection
+        // Timeout 5 phút cho SSE connection
         SseEmitter emitter = new SseEmitter(300_000L);
 
         // Đẩy xử lý sang async thread, trả SseEmitter ngay cho client
