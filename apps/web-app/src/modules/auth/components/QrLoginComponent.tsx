@@ -7,8 +7,7 @@ import Cookies from "js-cookie";
 import { useSocket, useSocketListener } from "@/shared/hooks/useSocket";
 import { useAuth } from "@/shared/providers/AuthProvider";
 import { setAccessToken } from "@/services/api/token-store";
-import { initQrSession } from "@/services/auth/auth.service";
-import { getCurrentUser } from "@/services/auth/auth.service";
+import { initQrSession, getCurrentUser, type AuthUser } from "@/services/auth/auth.service";
 import { Loader2, RefreshCw, CheckCircle2, ShieldAlert } from "lucide-react";
 
 export default function QrLoginComponent() {
@@ -78,7 +77,7 @@ export default function QrLoginComponent() {
   }, [socket, sessionId]);
 
   // Lắng nghe sự kiện login thành công từ socket
-  useSocketListener(socket, "qr_login_success", async (loginResponse: { accessToken: string; user?: { email?: string } }) => {
+  useSocketListener(socket, "qr_login_success", async (loginResponse: { accessToken: string; user: AuthUser }) => {
     try {
       console.log("🎉 [Socket] Nhận sự kiện đăng nhập QR thành công:", loginResponse);
       setIsSuccess(true);
