@@ -146,3 +146,13 @@ export async function updateDepartment(id: number, name: string): Promise<Depart
 export async function deleteDepartment(id: number): Promise<void> {
   return httpService.delete<void>(`/admin/departments/${id}`);
 }
+
+export async function importUsersFromExcel(file: File): Promise<void> {
+  const formData = new FormData();
+  formData.append("file", file);
+  return httpService.post<void>("/admin/users/import", formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
+}

@@ -15,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/admin/users")
@@ -120,6 +121,18 @@ public class AdminUserController {
         UserSummaryResponse summary = adminUserService.getUserSummary();
         return ResponseEntity.ok(
                 ApiResponseFactory.success(HttpStatus.OK, "Lấy thông tin tổng quan thành công.", summary)
+        );
+    }
+
+    @PostMapping(value = "/import", consumes = org.springframework.http.MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ApiSuccessResponse<Void>> importUsers(
+            @RequestParam("file") MultipartFile file,
+            Authentication authentication
+    ) {
+        checkAdminAccess(authentication);
+        adminUserService.importUsersFromExcel(file);
+        return ResponseEntity.ok(
+                ApiResponseFactory.success(HttpStatus.OK, "Nhập danh sách người dùng từ Excel thành công.", null)
         );
     }
 
