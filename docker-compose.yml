@@ -4,9 +4,9 @@ services:
     container_name: mysql-db
     restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_ASSIGNMENT_DATABASE: ${MYSQL_ASSIGNMENT_DATABASE}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-ott_education_db}
+      MYSQL_ASSIGNMENT_DATABASE: ${MYSQL_ASSIGNMENT_DATABASE:-ott_assignment_db}
     volumes:
       - db_data:/var/lib/mysql
       - ./gateway/mysql-init:/docker-entrypoint-initdb.d
@@ -37,12 +37,12 @@ services:
     container_name: mongo-db
     restart: always
     environment:
-      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
-      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME:-root}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD:-secret_mongo_pass}
     volumes:
       - mongo_data:/data/db
     ports:
-      - "${MONGO_PORT}:27017"
+      - "${MONGO_PORT:-27017}:27017"
     networks:
       - app-network
 
@@ -52,10 +52,10 @@ services:
     restart: on-failure
     env_file: .env
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/${MYSQL_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/${MYSQL_DATABASE:-ott_education_db}?useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongo-db:27017/${MONGO_DB_NAME}?authSource=admin
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
+      MONGO_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-root}:${MONGO_INITDB_ROOT_PASSWORD:-secret_mongo_pass}@mongo-db:27017/${MONGO_DB_NAME:-chat_history_db}?authSource=admin
       CHAT_SERVICE_BASE_URL: http://chat-service:3001/api
       SPRING_JPA_HIBERNATE_DDL_AUTO: none
       SPRING_FLYWAY_ENABLED: "true"
@@ -75,14 +75,14 @@ services:
     restart: on-failure
     env_file: .env
     ports:
-      - "${ASSIGNMENT_PORT}:8080"
+      - "${ASSIGNMENT_PORT:-8081}:8080"
     depends_on:
       mysql-db:
         condition: service_healthy
     environment:
-      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/${MYSQL_ASSIGNMENT_DATABASE}?useSSL=false&allowPublicKeyRetrieval=true
+      SPRING_DATASOURCE_URL: jdbc:mysql://mysql-db:3306/${MYSQL_ASSIGNMENT_DATABASE:-ott_assignment_db}?useSSL=false&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
-      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_password}
       SPRING_JPA_HIBERNATE_DDL_AUTO: none
     networks:
       - app-network
@@ -96,17 +96,17 @@ services:
     command: npm run dev
     env_file: .env
     environment:
-      MONGO_CHAT_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME}:${MONGO_INITDB_ROOT_PASSWORD}@mongo-db:27017/${MONGO_DB_NAME}?authSource=admin
+      MONGO_CHAT_URI: mongodb://${MONGO_INITDB_ROOT_USERNAME:-root}:${MONGO_INITDB_ROOT_PASSWORD:-secret_mongo_pass}@mongo-db:27017/${MONGO_DB_NAME:-chat_history_db}?authSource=admin
       MEDIASOUP_LISTEN_IP: 0.0.0.0
-      MEDIASOUP_ANNOUNCED_IP: ${MEDIASOUP_ANNOUNCED_IP}
+      MEDIASOUP_ANNOUNCED_IP: ${MEDIASOUP_ANNOUNCED_IP:-127.0.0.1}
       MEDIASOUP_RTC_MIN_PORT: ${MEDIASOUP_RTC_MIN_PORT:-40000}
       MEDIASOUP_RTC_MAX_PORT: ${MEDIASOUP_RTC_MAX_PORT:-40050}
-      MEDIASOUP_WORKER_COUNT: ${MEDIASOUP_WORKER_COUNT}
+      MEDIASOUP_WORKER_COUNT: 1
     volumes:
       - ./services/chat-service:/app
       - /app/node_modules
     ports:
-      - "${CHAT_PORT}:3001"
+      - "${CHAT_PORT:-3001}:3001"
       - "${MEDIASOUP_RTC_MIN_PORT:-40000}-${MEDIASOUP_RTC_MAX_PORT:-40050}:${MEDIASOUP_RTC_MIN_PORT:-40000}-${MEDIASOUP_RTC_MAX_PORT:-40050}/udp"
       - "${MEDIASOUP_RTC_MIN_PORT:-40000}-${MEDIASOUP_RTC_MAX_PORT:-40050}:${MEDIASOUP_RTC_MIN_PORT:-40000}-${MEDIASOUP_RTC_MAX_PORT:-40050}/tcp"
     depends_on:
@@ -120,16 +120,14 @@ services:
       target: deps
     container_name: web-app
     restart: always
-    command: npm run dev -- --webpack
+    command: npm run dev
     env_file: .env
-    environment:
-      - WATCHPACK_POLLING=true
     volumes:
       - ./apps/web-app:/app
       - /app/node_modules
       - /app/.next
     ports:
-      - "${WEB_PORT}:3000"
+      - "${WEB_PORT:-3000}:3000"
     networks:
       - app-network
 
@@ -141,8 +139,8 @@ services:
       - ./gateway/nginx.conf:/etc/nginx/nginx.conf
       - ./gateway/certs:/etc/nginx/certs:ro
     ports:
-      - "${GATEWAY_PORT}:443"
-      - "${GATEWAY_COMPAT_HTTP_PORT}:80"
+      - "${GATEWAY_PORT:-8000}:443"
+      - "${GATEWAY_COMPAT_HTTP_PORT:-8088}:80"
     networks:
       - app-network
 
