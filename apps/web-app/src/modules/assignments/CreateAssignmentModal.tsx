@@ -178,8 +178,8 @@ export default function CreateAssignmentModal({
               {...register('title', { required: 'Nhập tiêu đề' })}
               placeholder="Nhập tiêu đề bài tập..."
               className={`w-full px-4 py-2.5 rounded-lg border text-sm transition-colors ${errors.title
-                  ? 'border-red-300 bg-red-50 focus:border-red-500 focus:outline-none'
-                  : 'border-slate-300 bg-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
+                ? 'border-red-300 bg-red-50 focus:border-red-500 focus:outline-none'
+                : 'border-slate-300 bg-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
                 }`}
             />
             {errors.title && <p className="mt-1 text-xs text-red-600">{errors.title.message}</p>}
@@ -220,8 +220,8 @@ export default function CreateAssignmentModal({
                 min={1}
                 max={1000}
                 className={`w-full px-4 py-2.5 rounded-lg border text-sm transition-colors ${errors.maxScore
-                    ? 'border-red-300 bg-red-50 focus:border-red-500 focus:outline-none'
-                    : 'border-slate-300 bg-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
+                  ? 'border-red-300 bg-red-50 focus:border-red-500 focus:outline-none'
+                  : 'border-slate-300 bg-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
                   }`}
               />
               {errors.maxScore && <p className="mt-1 text-xs text-red-600">{errors.maxScore.message}</p>}
@@ -237,8 +237,8 @@ export default function CreateAssignmentModal({
               type="datetime-local"
               {...register('dueDate', { required: 'Chọn hạn nộp' })}
               className={`w-full px-4 py-2.5 rounded-lg border text-sm transition-colors ${errors.dueDate
-                  ? 'border-red-300 bg-red-50 focus:border-red-500 focus:outline-none'
-                  : 'border-slate-300 bg-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
+                ? 'border-red-300 bg-red-50 focus:border-red-500 focus:outline-none'
+                : 'border-slate-300 bg-white focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500'
                 }`}
             />
             {errors.dueDate && <p className="mt-1 text-xs text-red-600">{errors.dueDate.message}</p>}
@@ -307,7 +307,7 @@ export default function CreateAssignmentModal({
                     <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                   </svg>
                   <p className="text-sm text-emerald-700 font-medium">
-                    ✨ Câu hỏi từ AI đã được nạp vào bộ câu hỏi bên dưới. Bạn có thể chỉnh sửa thêm.
+                    Câu hỏi từ AI đã được nạp vào bộ câu hỏi bên dưới. Bạn có thể chỉnh sửa thêm.
                   </p>
                   <button
                     type="button"
