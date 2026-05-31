@@ -293,6 +293,7 @@ export default function CreateAssignmentModal({
               {/* ✨ AI-Assisted Quiz Generator */}
               <AiQuizGenerator
                 teamId={teamId}
+                totalScore={Number(watch('maxScore')) || 100}
                 onQuestionsReady={(generatedQuestions: QuestionFormData[]) => {
                   setValue('questions', generatedQuestions);
                   setAiQuestionsApplied(true);

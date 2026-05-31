@@ -32,15 +32,17 @@ interface TerminalLine {
 }
 
 interface AiQuizGeneratorProps {
-  /** Called when the user clicks "Lưu Bài Tập" with fully-mapped questions */
+  /** Called when the user clicks "Dùng câu hỏi này" with fully-mapped questions */
   onQuestionsReady: (questions: QuestionFormData[]) => void;
   teamId: number;
+  /** Total score of the assignment — used to auto-calculate points per question */
+  totalScore?: number;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const AI_BASE_URL = ''; // Proxied via Next.js rewrite: /api/ai/* → http://ai-service:8080/api/ai/*
-const QUESTION_COUNT = 15;
+const DEFAULT_QUESTION_COUNT = 15;
 const OPTION_LABELS = ['A', 'B', 'C', 'D'] as const;
 
 // ─── Helper: parse "A. some text" → label + text ────────────────────────────
@@ -53,7 +55,16 @@ function parseOption(raw: string): { label: string; text: string } {
 
 // ─── Helper: map AI questions → QuestionFormData ──────────────────────────────
 
-function mapAiToFormData(questions: AiGeneratedQuestion[]): QuestionFormData[] {
+function mapAiToFormData(
+  questions: AiGeneratedQuestion[],
+  totalScore?: number
+): QuestionFormData[] {
+  // Auto-distribute score evenly; round to 2 decimal places, min 1
+  const pointsEach =
+    totalScore && questions.length > 0
+      ? Math.max(1, Math.round((totalScore / questions.length) * 100) / 100)
+      : 1;
+
   return questions.map((q, qIdx) => {
     const options: OptionFormData[] = q.options.map((rawOpt, oIdx) => {
       const { label, text } = parseOption(rawOpt);
@@ -67,7 +78,7 @@ function mapAiToFormData(questions: AiGeneratedQuestion[]): QuestionFormData[] {
     return {
       content: q.question,
       type: 'SINGLE_CHOICE',
-      points: 1,
+      points: pointsEach,
       displayOrder: qIdx + 1,
       options,
     };
@@ -85,11 +96,11 @@ function TerminalBlock({ lines }: { lines: TerminalLine[] }) {
 
   const colorClass = (type: TerminalLine['type']) => {
     switch (type) {
-      case 'success':  return 'text-emerald-400';
+      case 'success': return 'text-emerald-400';
       case 'progress': return 'text-sky-300';
-      case 'warn':     return 'text-yellow-400';
-      case 'error':    return 'text-red-400';
-      default:         return 'text-slate-300';
+      case 'warn': return 'text-yellow-400';
+      case 'error': return 'text-red-400';
+      default: return 'text-slate-300';
     }
   };
 
@@ -176,20 +187,18 @@ function EditableQuestionCard({ question, index, onChange, onDelete }: EditableQ
           return (
             <div
               key={label}
-              className={`flex items-center gap-3 p-2.5 rounded-lg border transition-colors ${
-                isCorrect
+              className={`flex items-center gap-3 p-2.5 rounded-lg border transition-colors ${isCorrect
                   ? 'bg-emerald-50 border-emerald-300'
                   : 'bg-slate-50 border-slate-200 hover:border-slate-300'
-              }`}
+                }`}
             >
               <button
                 type="button"
                 onClick={() => handleCorrectChange(label)}
-                className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${
-                  isCorrect
+                className={`flex-shrink-0 w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isCorrect
                     ? 'bg-emerald-500 border-emerald-500 shadow-sm'
                     : 'border-slate-300 hover:border-emerald-400'
-                }`}
+                  }`}
               >
                 {isCorrect && (
                   <svg className="w-3.5 h-3.5 text-white" fill="currentColor" viewBox="0 0 20 20">
@@ -206,11 +215,10 @@ function EditableQuestionCard({ question, index, onChange, onDelete }: EditableQ
                 type="text"
                 value={text}
                 onChange={(e) => handleOptionTextChange(oIdx, e.target.value)}
-                className={`flex-1 text-sm px-2 py-1 rounded border bg-white focus:outline-none focus:ring-1 transition-all ${
-                  isCorrect
+                className={`flex-1 text-sm px-2 py-1 rounded border bg-white focus:outline-none focus:ring-1 transition-all ${isCorrect
                     ? 'border-emerald-300 focus:ring-emerald-300 text-emerald-800 font-medium'
                     : 'border-slate-200 focus:ring-violet-300 text-slate-700'
-                }`}
+                  }`}
                 placeholder={`Đáp án ${label}...`}
               />
               {isCorrect && (
@@ -228,7 +236,7 @@ function EditableQuestionCard({ question, index, onChange, onDelete }: EditableQ
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function AiQuizGenerator({ onQuestionsReady }: AiQuizGeneratorProps) {
+export default function AiQuizGenerator({ onQuestionsReady, totalScore }: AiQuizGeneratorProps) {
   const [isEnabled, setIsEnabled] = useState(false);
   const [phase, setPhase] = useState<GenerationPhase>('idle');
   const [documentId, setDocumentId] = useState<string | null>(null);
@@ -237,6 +245,8 @@ export default function AiQuizGenerator({ onQuestionsReady }: AiQuizGeneratorPro
   const [questions, setQuestions] = useState<AiGeneratedQuestion[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  // ── Improvement 1: dynamic question count ──
+  const [questionCount, setQuestionCount] = useState(DEFAULT_QUESTION_COUNT);
   const lineIdRef = useRef(0);
 
   const addLine = useCallback((text: string, type: TerminalLine['type'] = 'info') => {
@@ -300,9 +310,10 @@ export default function AiQuizGenerator({ onQuestionsReady }: AiQuizGeneratorPro
     setQuestions([]);
     setSaveError(null);
 
+    // ── Improvement 3: log filename, not raw UUID; use dynamic count ──
     addLine(`[${new Date().toLocaleTimeString()}] Bắt đầu kết nối tới AI service...`, 'info');
-    addLine(`documentId: ${documentId}`, 'info');
-    addLine(`Yêu cầu tạo ${QUESTION_COUNT} câu hỏi trắc nghiệm...`, 'progress');
+    addLine(`documentName: ${uploadedFileName ?? documentId}`, 'info');
+    addLine(`Yêu cầu tạo ${questionCount} câu hỏi trắc nghiệm...`, 'progress');
 
     const accumulated: AiGeneratedQuestion[] = [];
 
@@ -316,7 +327,7 @@ export default function AiQuizGenerator({ onQuestionsReady }: AiQuizGeneratorPro
         },
         body: JSON.stringify({
           documentId,
-          questionCount: QUESTION_COUNT,
+          questionCount,
           questionType: 'MULTIPLE_CHOICE',
         }),
       });
@@ -426,9 +437,8 @@ export default function AiQuizGenerator({ onQuestionsReady }: AiQuizGeneratorPro
     setIsSaving(true);
     setSaveError(null);
     try {
-      const mapped = mapAiToFormData(questions);
-      // Delegate actual save (to assignment-service via /api/v1/assignments/create)
-      // to the parent CreateAssignmentModal via the callback.
+      // ── Improvement 4: pass totalScore so points are auto-calculated ──
+      const mapped = mapAiToFormData(questions, totalScore);
       onQuestionsReady(mapped);
     } catch (err: unknown) {
       setSaveError((err as Error).message ?? 'Lỗi khi xử lý câu hỏi');
@@ -446,6 +456,7 @@ export default function AiQuizGenerator({ onQuestionsReady }: AiQuizGeneratorPro
     setTerminalLines([]);
     setQuestions([]);
     setSaveError(null);
+    setQuestionCount(DEFAULT_QUESTION_COUNT);
   };
 
   // ─────────────────────────────────────────────────────────────────────────────
@@ -470,21 +481,19 @@ export default function AiQuizGenerator({ onQuestionsReady }: AiQuizGeneratorPro
               ✨ Tạo bài tập trắc nghiệm tự động với AI
             </p>
             <p className="text-xs text-slate-500 mt-0.5">
-              Tải lên tài liệu → AI tự động sinh {QUESTION_COUNT} câu hỏi
+              Tải lên tài liệu → AI tự động sinh câu hỏi trắc nghiệm
             </p>
           </div>
         </div>
 
         {/* Toggle pill */}
         <div
-          className={`relative w-11 h-6 rounded-full transition-colors duration-300 flex-shrink-0 ${
-            isEnabled ? 'bg-gradient-to-r from-violet-500 to-indigo-600' : 'bg-slate-200'
-          }`}
+          className={`relative w-11 h-6 rounded-full transition-colors duration-300 flex-shrink-0 ${isEnabled ? 'bg-gradient-to-r from-violet-500 to-indigo-600' : 'bg-slate-200'
+            }`}
         >
           <span
-            className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-300 ${
-              isEnabled ? 'translate-x-5' : 'translate-x-0'
-            }`}
+            className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-300 ${isEnabled ? 'translate-x-5' : 'translate-x-0'
+              }`}
           />
         </div>
       </button>
@@ -500,11 +509,10 @@ export default function AiQuizGenerator({ onQuestionsReady }: AiQuizGeneratorPro
                 Bước 1 — Tải lên tài liệu học liệu
               </label>
               <label
-                className={`flex flex-col items-center justify-center gap-3 p-6 rounded-xl border-2 border-dashed cursor-pointer transition-all ${
-                  phase === 'uploading'
+                className={`flex flex-col items-center justify-center gap-3 p-6 rounded-xl border-2 border-dashed cursor-pointer transition-all ${phase === 'uploading'
                     ? 'border-violet-300 bg-violet-50 opacity-75 pointer-events-none'
                     : 'border-slate-300 hover:border-violet-400 hover:bg-violet-50'
-                }`}
+                  }`}
               >
                 <input
                   type="file"
@@ -581,6 +589,41 @@ export default function AiQuizGenerator({ onQuestionsReady }: AiQuizGeneratorPro
                 Bước 2 — Tạo câu hỏi với AI
               </label>
 
+              {/* ── Improvement 1: dynamic question count input ── */}
+              {phase === 'ready' && (
+                <div className="flex items-center gap-3 mb-3">
+                  <label className="text-xs font-medium text-slate-600 whitespace-nowrap">Số câu hỏi:</label>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => setQuestionCount((n) => Math.max(1, n - 1))}
+                      className="w-7 h-7 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-violet-50 hover:border-violet-400 font-bold text-base leading-none transition-colors flex items-center justify-center"
+                    >−</button>
+                    <input
+                      type="number"
+                      min={1}
+                      max={50}
+                      value={questionCount}
+                      onChange={(e) => {
+                        const v = Math.min(50, Math.max(1, Number(e.target.value) || 1));
+                        setQuestionCount(v);
+                      }}
+                      className="w-14 text-center px-2 py-1 rounded-lg border border-slate-300 text-sm font-semibold text-slate-800 focus:border-violet-500 focus:outline-none focus:ring-2 focus:ring-violet-100 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setQuestionCount((n) => Math.min(50, n + 1))}
+                      className="w-7 h-7 rounded-lg border border-slate-300 bg-white text-slate-600 hover:bg-violet-50 hover:border-violet-400 font-bold text-base leading-none transition-colors flex items-center justify-center"
+                    >+</button>
+                  </div>
+                  {totalScore && (
+                    <span className="ml-auto text-xs text-slate-400">
+                      ≈ <span className="font-semibold text-slate-600">{(totalScore / questionCount).toFixed(1)}</span> điểm/câu
+                    </span>
+                  )}
+                </div>
+              )}
+
               {phase === 'ready' && (
                 <button
                   type="button"
@@ -590,22 +633,35 @@ export default function AiQuizGenerator({ onQuestionsReady }: AiQuizGeneratorPro
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
                     <path d="M12 2l1.09 3.26L16.5 6l-3.41 1.74L12 11l-1.09-3.26L7.5 6l3.41-1.74L12 2z" />
                   </svg>
-                  Tạo {QUESTION_COUNT} câu trắc nghiệm ✨
+                  Tạo {questionCount} câu trắc nghiệm
                 </button>
               )}
 
-              {phase === 'generating' && (
-                <div className="flex items-center gap-3 py-2.5 px-4 rounded-xl bg-violet-50 border border-violet-200">
-                  <svg className="w-5 h-5 animate-spin text-violet-600" fill="none" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                    <path className="opacity-75" fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  <span className="text-sm font-medium text-violet-700">
-                    AI đang tạo câu hỏi... ({questions.length}/{QUESTION_COUNT})
-                  </span>
-                </div>
-              )}
+              {/* ── Improvement 2: horizontal progress bar ── */}
+              {phase === 'generating' && (() => {
+                const pct = Math.min(100, Math.round((questions.length / questionCount) * 100));
+                return (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-violet-700">
+                        AI đang tạo câu hỏi...
+                      </span>
+                      <span className="text-xs font-semibold text-violet-600 tabular-nums">
+                        {questions.length}/{questionCount}
+                      </span>
+                    </div>
+                    <div className="relative h-2.5 w-full rounded-full bg-violet-100 overflow-hidden">
+                      <div
+                        className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-violet-500 to-indigo-500 transition-all duration-500 ease-out"
+                        style={{ width: `${pct}%` }}
+                      />
+                      {/* shimmer overlay */}
+                      <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-[shimmer_1.5s_infinite] bg-[length:200%_100%]" />
+                    </div>
+                    <p className="text-xs text-slate-400 text-right">{pct}% hoàn thành</p>
+                  </div>
+                );
+              })()}
 
               {/* Terminal */}
               {terminalLines.length > 0 && <TerminalBlock lines={terminalLines} />}
