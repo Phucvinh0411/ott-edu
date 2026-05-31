@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Question, AnswerOption, LocalAnswers } from '@/shared/types/quiz';
+import { Question, LocalAnswers } from '@/shared/types/quiz';
 
 interface QuizReviewModalProps {
   questions: Question[];

@@ -53,48 +53,6 @@ export default function AssignmentDetail({
   // Feature 4: Refresh submission for post-submit status table
   const [refreshSubmission, setRefreshSubmission] = useState(false);
 
-  // TEACHER: Permission toggles (for QUIZ only)
-  const [allowViewScore, setAllowViewScore] = useState(true);
-  const [allowReview, setAllowReview] = useState(false);
-  const [permissionUpdating, setPermissionUpdating] = useState(false);
-  const updatePermissionTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
-
-  // Realtime update permission
-  const updatePermissionRealtime = useCallback((field: 'allowViewScore' | 'allowReview', value: boolean) => {
-    // Clear existing timeout
-    if (updatePermissionTimeoutRef.current) {
-      clearTimeout(updatePermissionTimeoutRef.current);
-    }
-
-    setPermissionUpdating(true);
-
-    // Debounce API call
-    updatePermissionTimeoutRef.current = setTimeout(async () => {
-      try {
-        const payload: Record<string, boolean> = {};
-        payload[field] = value;
-
-        // Also send legacy field names if needed
-        if (field === 'allowViewScore') payload.showScoreAfterSubmit = value;
-        if (field === 'allowReview') payload.showAnswersAfterSubmit = value;
-
-        console.log('🔄 Updating permission realtime:', { field, value, payload });
-
-        // Call update API
-        await assignmentApi.patchPermissions(assignmentId, payload);
-
-        setPermissionUpdating(false);
-        console.log('✅ Permission updated successfully');
-      } catch (err: unknown) {
-        console.error('❌ Failed to update permission:', err);
-        // Revert on error
-        if (field === 'allowViewScore') setAllowViewScore(!value);
-        if (field === 'allowReview') setAllowReview(!value);
-        setPermissionUpdating(false);
-      }
-    }, 500);
-  }, [assignmentId]);
-
   const initializeOrFetchSubmission = useCallback(async (assignmentId: number) => {
     try {
       // Try to fetch current submission first
@@ -122,12 +80,6 @@ export default function AssignmentDetail({
 
       const detail = await assignmentApi.getDetail(assignmentId);
       setAssignment(detail);
-
-      // Load permission settings for QUIZ
-      if (detail.type === AssignmentType.QUIZ) {
-        setAllowViewScore(detail.allowViewScore ?? (detail as any).showScoreAfterSubmit ?? true);
-        setAllowReview(detail.allowReview ?? (detail as any).showAnswersAfterSubmit ?? false);
-      }
 
       // If STUDENT and QUIZ, load attempt history and check if can attempt
       if (!isTeacher && detail.type === AssignmentType.QUIZ) {

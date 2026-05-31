@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/shared/providers/AuthProvider';
 import { assignmentApi, submissionApi } from '@/services/api/assignment.service';
-import { AssignmentDetail, Question, AnswerOption, SubmissionStatus } from '@/shared/types/quiz';
+import { AssignmentDetail, SubmissionStatus } from '@/shared/types/quiz';
 import AppLoader from '@/shared/components/common/AppLoader';
 import Link from 'next/link';
 
