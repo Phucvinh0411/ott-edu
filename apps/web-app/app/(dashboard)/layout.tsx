@@ -15,7 +15,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const { user, logout, isInitializing } = useAuth();
+  const { user, logout, isInitializing, switchAccount } = useAuth();
   const [searchValue, setSearchValue] = useState("");
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [schoolName, setSchoolName] = useState(user?.schoolName || "");
@@ -172,6 +172,7 @@ export default function DashboardLayout({
     onLogout: handleLogout,
     isLoggingOut,
     schoolName: schoolName || undefined,
+    switchAccount,
   };
 
   return (

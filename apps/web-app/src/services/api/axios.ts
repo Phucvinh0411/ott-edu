@@ -5,7 +5,8 @@ import {
   getAccessToken,
   setAccessToken,
   getRefreshToken,
-  updateActiveSessionToken
+  updateActiveSessionToken,
+  getActiveUserId
 } from "@/services/api/token-store";
 import { emitSessionExpired } from "@/services/auth/session-events";
 
@@ -154,18 +155,14 @@ apiClient.interceptors.response.use(
     isRefreshing = true;
 
     try {
-      const refreshToken = getRefreshToken();
-      if (!refreshToken) {
-        throw new Error("No active refresh token available in sessionStorage.");
-      }
-
+      const activeUserId = getActiveUserId();
       const response = await fetch("/api/core/auth/refresh", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ refreshToken }),
-        credentials: "omit",
+        body: JSON.stringify({ userId: activeUserId }),
+        credentials: "same-origin",
       });
 
       if (!response.ok) {

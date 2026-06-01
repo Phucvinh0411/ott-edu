@@ -98,34 +98,6 @@ export function AppProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("userEmail");
   };
 
-  // Listen for storage changes across tabs for session synchronization
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    const handleStorageChange = (event: StorageEvent) => {
-      if (event.key !== "auth_sessions") return;
-
-      const activeId = sessionStorage.getItem("active_session_id");
-      if (!activeId) return;
-
-      try {
-        const nextMap = JSON.parse(event.newValue || "{}");
-        if (!nextMap[activeId]) {
-          // Current tab's session has been deleted/logged out from another tab
-          logout();
-          window.location.href = "/login";
-        }
-      } catch (error) {
-        console.error("Failed to sync cross-tab logout:", error);
-      }
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-    return () => {
-      window.removeEventListener("storage", handleStorageChange);
-    };
-  }, []);
-
   return (
     <AppContext.Provider
       value={{

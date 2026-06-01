@@ -18,6 +18,7 @@ import {
   updateActiveSessionToken,
   getActiveUser,
   getRefreshToken,
+  getActiveUserId,
 } from "@/services/api/token-store";
 import { subscribeSessionExpired } from "@/services/auth/session-events";
 
@@ -28,6 +29,7 @@ type AuthContextValue = {
   login: (payload: LoginPayload) => Promise<void>;
   logout: () => Promise<void>;
   setUser: (user: AuthUser | null) => void;
+  switchAccount: (email: string) => Promise<void>;
 };
 
 const fallbackAuthContext: AuthContextValue = {
@@ -47,6 +49,9 @@ const fallbackAuthContext: AuthContextValue = {
     }
   },
   setUser: () => {
+    // no-op in fallback mode
+  },
+  switchAccount: async () => {
     // no-op in fallback mode
   },
 };
@@ -72,30 +77,23 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
 
     async function bootstrapSession() {
       try {
-        const token = getRefreshToken();
-        if (!token) {
-          throw new Error("No active refresh token in sessionStorage");
-        }
-        const refreshResult = await refreshSession(token);
+        const activeUserId = getActiveUserId();
+        const refreshResult = await refreshSession(activeUserId);
         updateActiveSessionToken(refreshResult.accessToken, refreshResult.refreshToken);
 
         const currentUser = await getCurrentUser();
+        
+        // Full session anchoring: register session context in memory & sessionStorage
+        registerSession(refreshResult.accessToken, refreshResult.refreshToken || "", currentUser);
+
         if (isMounted) {
           setUser(currentUser);
         }
       } catch {
-        // Avoid clobbering a successful manual login that may complete
-        // while the initial bootstrap refresh request is still in flight.
         if (!getAccessToken()) {
           clearAccessToken();
           if (isMounted) {
             setUser(null);
-          }
-        } else {
-          // If we failed to refresh but have an active session in local store, fetch it
-          const activeUser = getActiveUser();
-          if (isMounted && activeUser) {
-            setUser(activeUser);
           }
         }
       } finally {
@@ -128,7 +126,8 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
       },
       logout: async () => {
         try {
-          await logoutApi();
+          const activeUserId = getActiveUserId();
+          await logoutApi(activeUserId);
         } finally {
           clearAccessToken();
           setUser(null);
@@ -136,6 +135,30 @@ export function AuthProvider({ children }: Readonly<{ children: React.ReactNode 
         }
       },
       setUser,
+      switchAccount: async (email: string) => {
+        try {
+          setIsInitializing(true);
+          sessionStorage.setItem("active_user_id", email);
+          const refreshResult = await refreshSession(email);
+          updateActiveSessionToken(refreshResult.accessToken, refreshResult.refreshToken);
+
+          const currentUser = await getCurrentUser();
+          registerSession(refreshResult.accessToken, refreshResult.refreshToken || "", currentUser);
+          setUser(currentUser);
+
+          const isAdmin = currentUser.roles?.some(
+            (role) =>
+              role === "ROLE_ADMIN" ||
+              role === "ROLE_SUPER_ADMIN" ||
+              role.includes("ADMIN")
+          );
+
+          window.location.href = isAdmin ? "/admin" : "/calendar";
+        } catch (err) {
+          console.error("Failed to switch account:", err);
+          setIsInitializing(false);
+        }
+      },
     }),
     [isInitializing, user]
   );

@@ -23,185 +23,106 @@ export interface AuthSessionRecord {
   lastAccessedAt: number;
 }
 
-export type AuthSessionsMap = Record<string, AuthSessionRecord>;
+export interface UserSessionMetadata {
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  avatarUrl: string | null;
+  role: string;
+}
 
-/**
- * Reads the entire sessions map from localStorage.
- * Handles SSR safely by checking if window is defined.
- */
-export function getSessionsMap(): AuthSessionsMap {
+export function getSessionsMetadata(): UserSessionMetadata[] {
   try {
     if (typeof window !== "undefined") {
-      const data = localStorage.getItem("auth_sessions");
-      return data ? JSON.parse(data) : {};
+      const raw = localStorage.getItem("auth_sessions_metadata");
+      return raw ? JSON.parse(raw) : [];
     }
-  } catch (error) {
-    console.error("Failed to parse auth_sessions from localStorage:", error);
+  } catch (e) {
+    console.error("Failed to read auth_sessions_metadata:", e);
   }
-  return {};
+  return [];
 }
 
-/**
- * Serializes and saves the sessions map to localStorage.
- * Emits storage event for local tab updates.
- */
-export function saveSessionsMap(map: AuthSessionsMap): void {
+export function saveSessionMetadata(user: AuthUser): void {
   try {
     if (typeof window !== "undefined") {
-      localStorage.setItem("auth_sessions", JSON.stringify(map));
-    }
-  } catch (error) {
-    console.error("Failed to save auth_sessions to localStorage:", error);
-  }
-}
-
-/**
- * Resolves the active session ID for the current tab with fallback logic.
- * If the current tab has no active_session_id in sessionStorage, it scans
- * the auth_sessions from localStorage, picks the one with the latest lastAccessedAt,
- * registers it as the active session for the current tab, and returns it.
- */
-export function getActiveSessionId(): string | null {
-  try {
-    if (typeof window === "undefined") return null;
-
-    let activeId = sessionStorage.getItem("active_session_id");
-    const map = getSessionsMap();
-
-    // If activeId exists and is valid in localStorage, use it
-    if (activeId && map[activeId]) {
-      return activeId;
-    }
-
-    // Fallback: Pick session with latest lastAccessedAt
-    const sessions = Object.entries(map);
-    if (sessions.length > 0) {
-      sessions.sort((a, b) => b[1].lastAccessedAt - a[1].lastAccessedAt);
-      const latestSessionId = sessions[0][0];
-      sessionStorage.setItem("active_session_id", latestSessionId);
-      return latestSessionId;
-    }
-
-    // No sessions found at all, clean up active_session_id
-    sessionStorage.removeItem("active_session_id");
-  } catch (error) {
-    console.error("Failed to resolve active_session_id:", error);
-  }
-  return null;
-}
-
-/**
- * Updates the lastAccessedAt timestamp for a session and saves the map.
- * This is triggered upon reading tokens or session details to maintain fresh access records.
- */
-function updateLastAccessed(sessionId: string): AuthSessionRecord | null {
-  try {
-    const map = getSessionsMap();
-    const session = map[sessionId];
-    if (session) {
-      session.lastAccessedAt = Date.now();
-      saveSessionsMap(map);
-      return session;
-    }
-  } catch (error) {
-    console.error("Failed to update lastAccessedAt for session:", error);
-  }
-  return null;
-}
-
-/**
- * Retrieves the access token of the active session.
- * Automatically updates lastAccessedAt.
- */
-export function getAccessToken(): string | null {
-  if (typeof window === "undefined") return null;
-  const activeId = getActiveSessionId();
-  if (activeId) {
-    const session = updateLastAccessed(activeId);
-    return session ? session.accessToken : null;
-  }
-  return null;
-}
-
-/**
- * Retrieves the refresh token of the active session.
- * Automatically updates lastAccessedAt.
- */
-export function getRefreshToken(): string | null {
-  if (typeof window === "undefined") return null;
-  const activeId = getActiveSessionId();
-  if (activeId) {
-    const session = updateLastAccessed(activeId);
-    return session ? session.refreshToken : null;
-  }
-  return null;
-}
-
-/**
- * Retrieves the active user profile object.
- * Automatically updates lastAccessedAt.
- */
-export function getActiveUser(): AuthUser | null {
-  if (typeof window === "undefined") return null;
-  const activeId = getActiveSessionId();
-  if (activeId) {
-    const session = updateLastAccessed(activeId);
-    return session ? session.user : null;
-  }
-  return null;
-}
-
-/**
- * Retrieves the active session record.
- */
-export function getActiveSession(): AuthSessionRecord | null {
-  if (typeof window === "undefined") return null;
-  const activeId = getActiveSessionId();
-  if (activeId) {
-    return updateLastAccessed(activeId);
-  }
-  return null;
-}
-
-/**
- * Retrieves the active class ID.
- * Automatically updates lastAccessedAt.
- */
-export function getActiveSessionClassId(): string | null {
-  if (typeof window === "undefined") return null;
-  const activeId = getActiveSessionId();
-  if (activeId) {
-    const session = updateLastAccessed(activeId);
-    return session ? session.classId : null;
-  }
-  return null;
-}
-
-/**
- * Sets the active session class ID.
- * Automatically updates lastAccessedAt.
- */
-export function setActiveSessionClassId(classId: string | null): void {
-  try {
-    if (typeof window === "undefined") return;
-    const activeId = getActiveSessionId();
-    if (activeId) {
-      const map = getSessionsMap();
-      const session = map[activeId];
-      if (session) {
-        session.classId = classId;
-        session.lastAccessedAt = Date.now();
-        saveSessionsMap(map);
+      const list = getSessionsMetadata();
+      const exists = list.some((u) => u.email === user.email);
+      const metadataItem: UserSessionMetadata = {
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        avatarUrl: user.avatarUrl,
+        role: user.roles?.[0] || "ROLE_STUDENT",
+      };
+      if (!exists) {
+        list.push(metadataItem);
+        localStorage.setItem("auth_sessions_metadata", JSON.stringify(list));
+      } else {
+        const updated = list.map((u) => (u.email === user.email ? metadataItem : u));
+        localStorage.setItem("auth_sessions_metadata", JSON.stringify(updated));
       }
     }
-  } catch (error) {
-    console.error("Failed to set active session classId:", error);
+  } catch (e) {
+    console.error("Failed to save auth_sessions_metadata:", e);
   }
 }
 
+export function removeSessionMetadata(email: string): void {
+  try {
+    if (typeof window !== "undefined") {
+      const list = getSessionsMetadata();
+      const filtered = list.filter((u) => u.email !== email);
+      localStorage.setItem("auth_sessions_metadata", JSON.stringify(filtered));
+    }
+  } catch (e) {
+    console.error("Failed to remove auth_sessions_metadata:", e);
+  }
+}
+
+// Strictly in-memory secure closure variables (XSS immune)
+let inMemoryAccessToken: string | null = null;
+let inMemoryUser: AuthUser | null = null;
+let inMemoryClassId: string | null = null;
+
 /**
- * High-level helper conforming to legacy codebase usage.
- * Clears or updates based on the provided token value.
+ * Retrieves the access token from secure Javascript memory.
+ */
+export function getAccessToken(): string | null {
+  return inMemoryAccessToken;
+}
+
+/**
+ * Refresh tokens are managed exclusively by the browser via HttpOnly cookies,
+ * so they are never exposed to Javascript code.
+ */
+export function getRefreshToken(): string | null {
+  return null;
+}
+
+/**
+ * Retrieves the active user profile from secure Javascript memory.
+ */
+export function getActiveUser(): AuthUser | null {
+  return inMemoryUser;
+}
+
+/**
+ * Retrieves the active class ID from secure Javascript memory.
+ */
+export function getActiveSessionClassId(): string | null {
+  return inMemoryClassId;
+}
+
+/**
+ * Sets the active class ID in secure Javascript memory.
+ */
+export function setActiveSessionClassId(classId: string | null): void {
+  inMemoryClassId = classId;
+}
+
+/**
+ * High-level helper for updates or clearing.
  */
 export function setAccessToken(token: string | null): void {
   if (token === null) {
@@ -212,32 +133,29 @@ export function setAccessToken(token: string | null): void {
 }
 
 /**
- * Updates the tokens of the active session.
- * Automatically updates lastAccessedAt.
+ * Updates the active session access token in secure Javascript memory.
  */
 export function updateActiveSessionToken(newAccessToken: string, newRefreshToken?: string): void {
-  try {
-    if (typeof window === "undefined") return;
-    const activeId = getActiveSessionId();
-    if (activeId) {
-      const map = getSessionsMap();
-      const session = map[activeId];
-      if (session) {
-        session.accessToken = newAccessToken;
-        if (newRefreshToken) {
-          session.refreshToken = newRefreshToken;
-        }
-        session.lastAccessedAt = Date.now();
-        saveSessionsMap(map);
-      }
-    }
-  } catch (error) {
-    console.error("Failed to update active session token:", error);
-  }
+  inMemoryAccessToken = newAccessToken;
 }
 
 /**
- * Registers a new session under `session_user_${user.email}` and marks it as active for this tab.
+ * Retrieves the active user's ID/email from sessionStorage.
+ * Safe for Next.js SSR.
+ */
+export function getActiveUserId(): string | null {
+  try {
+    if (typeof window !== "undefined") {
+      return sessionStorage.getItem("active_user_id");
+    }
+  } catch (error) {
+    console.error("Failed to read active_user_id from sessionStorage:", error);
+  }
+  return null;
+}
+
+/**
+ * Registers all credentials and user profile for a logged-in user in secure Javascript memory.
  */
 export function registerSession(
   accessToken: string,
@@ -245,90 +163,76 @@ export function registerSession(
   user: AuthUser,
   classId?: string | null
 ): void {
+  inMemoryAccessToken = accessToken;
+  inMemoryUser = user;
+  if (classId) {
+    inMemoryClassId = classId;
+  }
   try {
-    if (typeof window === "undefined") return;
-
-    const sessionId = `session_user_${user.email}`;
-    const map = getSessionsMap();
-
-    map[sessionId] = {
-      accessToken,
-      refreshToken,
-      user,
-      classId: classId || null,
-      role: user.roles?.[0] || "ROLE_STUDENT",
-      lastAccessedAt: Date.now(),
-    };
-
-    saveSessionsMap(map);
-    sessionStorage.setItem("active_session_id", sessionId);
+    if (typeof window !== "undefined") {
+      sessionStorage.setItem("active_user_id", user.email);
+      saveSessionMetadata(user);
+    }
   } catch (error) {
-    console.error("Failed to register session:", error);
+    console.error("Failed to save active_user_id in sessionStorage:", error);
   }
 }
 
 /**
- * Removes the active session of this tab from localStorage, and cleans the tab's active session ID.
+ * Wipes out all active authentication data from secure Javascript memory.
  */
 export function clearActiveSession(): void {
+  const email = inMemoryUser?.email;
+  inMemoryAccessToken = null;
+  inMemoryUser = null;
+  inMemoryClassId = null;
   try {
-    if (typeof window === "undefined") return;
-
-    const activeId = sessionStorage.getItem("active_session_id");
-    if (activeId) {
-      const map = getSessionsMap();
-      delete map[activeId];
-      saveSessionsMap(map);
+    if (typeof window !== "undefined") {
+      sessionStorage.removeItem("active_user_id");
+      if (email) {
+        removeSessionMetadata(email);
+      }
     }
-    sessionStorage.removeItem("active_session_id");
   } catch (error) {
-    console.error("Failed to clear active session:", error);
+    console.error("Failed to clear active_user_id from sessionStorage:", error);
   }
 }
 
 /**
- * Clears active session credentials.
+ * Wipes out all active authentication data.
  */
 export function clearAccessToken(): void {
   clearActiveSession();
 }
 
 /**
- * Returns all active sessions stored in localStorage, sorted by lastAccessedAt descending.
+ * Resolves the active session record if valid credentials exist in secure Javascript memory.
  */
-export function getSessions(): AuthSessionRecord[] {
-  try {
-    const map = getSessionsMap();
-    return Object.values(map).sort((a, b) => b.lastAccessedAt - a.lastAccessedAt);
-  } catch (error) {
-    console.error("Failed to retrieve sessions list:", error);
-    return [];
+export function getActiveSession(): AuthSessionRecord | null {
+  if (inMemoryAccessToken && inMemoryUser) {
+    return {
+      accessToken: inMemoryAccessToken,
+      refreshToken: "",
+      user: inMemoryUser,
+      classId: inMemoryClassId,
+      role: inMemoryUser.roles?.[0] || "ROLE_STUDENT",
+      lastAccessedAt: Date.now(),
+    };
   }
+  return null;
 }
 
 /**
- * Removes a specific session matching the user's email or full session ID.
- * If the current tab is operating under the removed session, it clears the active ID pointer.
+ * Returns all active sessions in the current context (single-item array).
+ */
+export function getSessions(): AuthSessionRecord[] {
+  const session = getActiveSession();
+  return session ? [session] : [];
+}
+
+/**
+ * Removes the session context.
  */
 export function removeSession(emailOrSessionId: string): void {
-  try {
-    if (typeof window === "undefined") return;
-
-    const sessionId = emailOrSessionId.startsWith("session_user_")
-      ? emailOrSessionId
-      : `session_user_${emailOrSessionId}`;
-
-    const map = getSessionsMap();
-    if (map[sessionId]) {
-      delete map[sessionId];
-      saveSessionsMap(map);
-    }
-
-    const activeId = sessionStorage.getItem("active_session_id");
-    if (activeId === sessionId) {
-      sessionStorage.removeItem("active_session_id");
-    }
-  } catch (error) {
-    console.error("Failed to remove session:", error);
-  }
+  clearActiveSession();
 }
