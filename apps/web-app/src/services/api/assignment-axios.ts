@@ -1,18 +1,11 @@
 import axios, { AxiosError, AxiosResponse, InternalAxiosRequestConfig } from "axios";
 import {
   getAccessToken,
-  setAccessToken,
   clearAccessToken,
-  getRefreshToken,
   updateActiveSessionToken,
   getActiveUserId
 } from "@/services/api/token-store";
 import { emitSessionExpired } from "@/services/auth/session-events";
-
-type RefreshResponse = {
-  accessToken: string;
-  refreshToken: string;
-};
 
 type ApiSuccessEnvelope<T> = {
   timestamp: string;
