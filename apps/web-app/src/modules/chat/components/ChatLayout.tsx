@@ -41,6 +41,15 @@ import {
 } from "../chatApi";
 
 function resolveSocketServerUrl(): string | undefined {
+  const chatServerUrl = process.env.NEXT_PUBLIC_CHAT_SERVER_URL?.trim();
+  if (chatServerUrl) {
+    try {
+      return new URL(chatServerUrl).origin;
+    } catch {
+      return chatServerUrl.replace(/\/+$/, "");
+    }
+  }
+
   const configuredUrl = process.env.NEXT_PUBLIC_CHAT_SERVICE_URL?.trim();
 
   const getGatewayOriginFromApiUrl = (): string | undefined => {
