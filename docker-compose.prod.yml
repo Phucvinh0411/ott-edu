@@ -69,7 +69,8 @@ services:
     restart: always
     volumes:
       - ./gateway/nginx.conf:/etc/nginx/nginx.conf
-      - ./gateway/certs:/etc/nginx/certs:ro
+      - /etc/letsencrypt/live/hoangkhaq.site/fullchain.pem:/etc/nginx/certs/dev.crt:ro
+      - /etc/letsencrypt/live/hoangkhaq.site/privkey.pem:/etc/nginx/certs/dev.key:ro
     ports:
       - "80:80"
       - "443:443"
