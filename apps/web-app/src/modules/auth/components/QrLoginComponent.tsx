@@ -21,9 +21,18 @@ export default function QrLoginComponent() {
   const [error, setError] = useState<string | null>(null);
 
   const countdownIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  // Track when the tab was hidden so we can auto-refresh stale QR codes
+  const hiddenAtRef = useRef<number | null>(null);
+  // Prevent double-fetches (e.g. simultaneous reconnect + mount)
+  const fetchingRef = useRef<boolean>(false);
 
-  // Khởi tạo QR Code session
+  // ──────────────────────────────────────────
+  // Core: fetch a new QR session from server
+  // ──────────────────────────────────────────
   const fetchNewQrSession = async () => {
+    if (fetchingRef.current) return;
+    fetchingRef.current = true;
+
     try {
       setIsLoading(true);
       setError(null);
@@ -39,62 +48,100 @@ export default function QrLoginComponent() {
       setExpiresIn(response.expiresIn);
       setIsLoading(false);
 
-      // Bắt đầu đếm ngược
+      // Countdown timer
       let timeLeft = response.expiresIn;
       countdownIntervalRef.current = setInterval(() => {
         timeLeft -= 1;
         setExpiresIn(timeLeft);
-        if (timeLeft <= 0) {
-          if (countdownIntervalRef.current) {
-            clearInterval(countdownIntervalRef.current);
-          }
+        if (timeLeft <= 0 && countdownIntervalRef.current) {
+          clearInterval(countdownIntervalRef.current);
         }
       }, 1000);
     } catch (err) {
       console.error("Lỗi khởi tạo QR code:", err);
       setError("Không thể tải mã QR. Vui lòng thử lại.");
       setIsLoading(false);
+    } finally {
+      fetchingRef.current = false;
     }
   };
 
+  // ──────────────────────────────────────────
+  // Mount: load first QR + tab-visibility guard
+  // ──────────────────────────────────────────
   useEffect(() => {
     fetchNewQrSession();
 
-    return () => {
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
+    // If the user leaves this tab open for a long time and comes back,
+    // the QR might be expired or the server restarted → fetch a new one.
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        hiddenAtRef.current = Date.now();
+      } else if (document.visibilityState === "visible") {
+        const hiddenAt = hiddenAtRef.current;
+        hiddenAtRef.current = null;
+        if (hiddenAt !== null && Date.now() - hiddenAt > 30_000) {
+          fetchNewQrSession();
+        }
       }
     };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Khi có socket và sessionId, join vào qr room (chỉ chạy khi socket hoặc sessionId thay đổi)
+  // ──────────────────────────────────────────
+  // Join QR room whenever socket or sessionId changes
+  // ──────────────────────────────────────────
   useEffect(() => {
     if (socket && sessionId) {
-      console.log(`📡 [Socket] Emitting join_qr_login_room for session: ${sessionId}`);
+      console.log(`📡 [Socket] Joining qr_room for session: ${sessionId}`);
       socket.emit("join_qr_login_room", { sessionId });
     }
   }, [socket, sessionId]);
 
-  // Lắng nghe sự kiện login thành công từ socket
+  // ──────────────────────────────────────────
+  // Socket reconnect → server may have restarted → fetch fresh QR
+  // The in-memory qrSessions map is wiped on restart, making the current
+  // session ID invalid. Fetch a new one so mobile can scan a valid code.
+  // ──────────────────────────────────────────
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleConnect = () => {
+      // socket.connected is true from the start, so skip the very first
+      // connect event (which fires before we even have a sessionId).
+      // We only care about RE-connects after a disconnection.
+      if (sessionId) {
+        console.log("[QR] Socket reconnected — fetching fresh QR session");
+        fetchNewQrSession();
+      }
+    };
+
+    socket.on("connect", handleConnect);
+    return () => {
+      socket.off("connect", handleConnect);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [socket, sessionId]);
+
+  // ──────────────────────────────────────────
+  // Listen for QR login success event
+  // ──────────────────────────────────────────
   useSocketListener(socket, "qr_login_success", async (loginResponse: { accessToken: string; user: AuthUser }) => {
     try {
-      console.log("🎉 [Socket] Nhận sự kiện đăng nhập QR thành công:", loginResponse);
+      console.log("🎉 [Socket] QR login success:", loginResponse);
       setIsSuccess(true);
-      if (countdownIntervalRef.current) {
-        clearInterval(countdownIntervalRef.current);
-      }
+      if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
 
-      // 1. Đăng ký session mới vào pool đa tài khoản
-      registerSession(
-        loginResponse.accessToken,
-        "", // QR login doesn't return refresh token through socket directly
-        loginResponse.user
-      );
-
-      // 2. Đồng bộ user lên Auth Context
+      // Register session
+      registerSession(loginResponse.accessToken, "", loginResponse.user);
       setUser(loginResponse.user);
 
-      // 3. Thiết lập thông tin Lớp học (classId) và Email vào sessionStorage để đồng bộ theo tab
       const latestUser = await getCurrentUser();
       const typedUser = latestUser as { email?: string; roles?: string[]; teams?: Array<{ id: number | string }> } | null;
       const userTeams = typedUser?.teams || [];
@@ -102,16 +149,10 @@ export default function QrLoginComponent() {
       const userEmail = typedUser?.email || loginResponse.user?.email || "";
 
       sessionStorage.setItem("userEmail", userEmail);
-      if (userClassId) {
-        setActiveSessionClassId(userClassId);
-      }
+      if (userClassId) setActiveSessionClassId(userClassId);
 
-      // 4. Chuyển hướng theo vai trò (Role-based redirect)
       const isAdmin = typedUser?.roles?.some(
-        (role: string) =>
-          role === "ROLE_ADMIN" ||
-          role === "ROLE_SUPER_ADMIN" ||
-          role.includes("ADMIN")
+        (role: string) => role === "ROLE_ADMIN" || role === "ROLE_SUPER_ADMIN" || role.includes("ADMIN")
       );
 
       setTimeout(() => {
@@ -121,9 +162,8 @@ export default function QrLoginComponent() {
           router.replace("/calendar");
         }
       }, 1500);
-
     } catch (err) {
-      console.error("Lỗi xử lý đăng nhập QR thành công:", err);
+      console.error("Lỗi xử lý đăng nhập QR:", err);
       setError("Đăng nhập thất bại. Vui lòng quét lại.");
     }
   });
