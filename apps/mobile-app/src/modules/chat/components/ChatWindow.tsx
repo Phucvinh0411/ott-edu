@@ -13,6 +13,7 @@ import { ChatInfoSidebar } from './ChatInfoSidebar';
 import AddMemberModal from './AddMemberModal';
 import { unfriendApi } from '../chatApi';
 import { sendFriendRequest } from '../../friends/friends.api';
+import UserAvatar from "../../../shared/components/UserAvatar";
 
 interface ChatWindowProps {
   conversation: Conversation | null;
@@ -330,7 +331,11 @@ export const ChatWindow: React.FC<ChatWindowProps> = ({
           activeOpacity={0.85}
           onPress={() => setIsSidebarVisible(true)}
         >
-          <Image source={{ uri: chatAvatar }} style={styles.headerAvatar} />
+          <UserAvatar
+            avatarUrl={isPrivate ? otherParticipant?.avatarUrl : conversation.avatarUrl}
+            firstName={chatName}
+            size={42}
+          />
           {isPrivate && otherParticipant?.isOnline && (
             <View style={styles.onlineStatus} />
           )}

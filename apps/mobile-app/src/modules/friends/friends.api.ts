@@ -48,7 +48,7 @@ export function mapApiUserToUser(apiUser: ApiUser): User {
     name: apiUser.fullName || apiUser.name || (apiUser.email ? apiUser.email.split('@')[0] : "Người dùng"),
     fullName: apiUser.fullName,
     email: apiUser.email,
-    avatarUrl: apiUser.avatarUrl || `https://i.pravatar.cc/150?u=${apiUser._id || apiUser.id}`,
+    avatarUrl: apiUser.avatarUrl,
     isOnline: !!apiUser.isOnline,
     friendStatus: apiUser.friendStatus || 'none'
   };

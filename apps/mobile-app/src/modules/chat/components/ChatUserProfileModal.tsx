@@ -2,6 +2,7 @@ import React from 'react';
 import { Modal, View, Text, TouchableOpacity, Image, StyleSheet, Pressable } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { User } from '../types';
+import UserAvatar from '../../../shared/components/UserAvatar';
 
 interface ChatUserProfileModalProps {
   visible: boolean;
@@ -26,7 +27,11 @@ export function ChatUserProfileModal({ visible, user, onClose }: ChatUserProfile
 
           <View style={styles.body}>
             <View style={styles.avatarWrap}>
-              <Image source={{ uri: user.avatarUrl }} style={styles.avatar} />
+              <UserAvatar
+                avatarUrl={user.avatarUrl}
+                firstName={user.name || "Người dùng"}
+                size={84}
+              />
             </View>
 
             <Text style={styles.name}>{user.name}</Text>

@@ -769,7 +769,7 @@ export const ChatLayout: React.FC<ChatLayoutProps> = ({ currentUserId }) => {
         participants: [currentUser as User, draftReceiver],
         lastMessage: null,
         unreadCount: 0,
-        avatarUrl: draftReceiver.avatarUrl,
+        avatarUrl: draftReceiver.avatarUrl || null,
       }
       : null);
 
