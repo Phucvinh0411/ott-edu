@@ -3,3 +3,6 @@ services:
     ports: !reset []
   ollama-server:
     deploy: !reset {}
+  assignment-service:
+    ports:
+      - "8081:8080"
