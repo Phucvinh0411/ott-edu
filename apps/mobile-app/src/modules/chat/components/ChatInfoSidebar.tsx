@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import UserAvatar from "../../../shared/components/UserAvatar";
 import { Socket } from "socket.io-client";
 import { ApiConversation, ApiMessage } from "../types";
 import {
@@ -331,9 +332,14 @@ export const ChatInfoSidebar: React.FC<ChatInfoSidebarProps> = ({
             <ScrollView showsVerticalScrollIndicator={false}>
               {/* Profile Section */}
               <View style={styles.profileSection}>
-                <Image
-                  source={{ uri: getDisplayAvatar() }}
-                  style={styles.avatar}
+                <UserAvatar
+                  avatarUrl={
+                    info?.type === "private"
+                      ? info.participants.find((p) => p._id !== currentChatUserId)?.avatarUrl
+                      : info?.avatarUrl
+                  }
+                  firstName={getDisplayName()}
+                  size={90}
                 />
                 <Text style={styles.chatName}>{getDisplayName()}</Text>
                 {info?.type === "class" && (
@@ -398,14 +404,10 @@ export const ChatInfoSidebar: React.FC<ChatInfoSidebarProps> = ({
                             <View className="flex-row items-center flex-1 mr-2">
                               {/* Round Avatar with absolute badge overlay */}
                               <View className="relative mr-4">
-                                <Image
-                                  source={{
-                                    uri:
-                                      p.avatarUrl && p.avatarUrl.trim() !== ""
-                                        ? p.avatarUrl
-                                        : `https://i.pravatar.cc/150?u=${p._id}`,
-                                  }}
-                                  className="w-11 h-11 rounded-full"
+                                <UserAvatar
+                                  avatarUrl={p.avatarUrl}
+                                  firstName={p.fullName || "Người dùng"}
+                                  size={44}
                                 />
 
                                 {/* Role Badge Overlay on Avatar */}

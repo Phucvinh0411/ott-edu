@@ -2,6 +2,7 @@ import React from 'react';
 import { Modal, View, Text, TouchableOpacity, Image, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Conversation, User } from '../types';
+import UserAvatar from '../../../shared/components/UserAvatar';
 
 interface ChatGroupManageModalProps {
   visible: boolean;
@@ -96,7 +97,11 @@ export function ChatGroupManageModal({
                   <Text style={styles.sectionLabel}>Trưởng nhóm</Text>
                   <Text style={styles.ownerName}>{owner.name}</Text>
                 </View>
-                <Image source={{ uri: owner.avatarUrl }} style={styles.ownerAvatar} />
+                <UserAvatar
+                  avatarUrl={owner.avatarUrl}
+                  firstName={owner.name || "Người dùng"}
+                  size={48}
+                />
               </TouchableOpacity>
             )}
 
@@ -121,7 +126,11 @@ export function ChatGroupManageModal({
                         activeOpacity={0.8}
                       >
                         <View style={styles.pickLeft}>
-                          <Image source={{ uri: member.avatarUrl }} style={styles.pickAvatar} />
+                          <UserAvatar
+                            avatarUrl={member.avatarUrl}
+                            firstName={member.name || "Người dùng"}
+                            size={36}
+                          />
                           <View style={{ flex: 1 }}>
                             <Text style={styles.pickName}>{member.name}</Text>
                             <Text style={styles.pickSub}>{member.email || member.code || ''}</Text>
@@ -188,7 +197,11 @@ export function ChatGroupManageModal({
                       onPress={() => onOpenProfile?.(participant)}
                       style={styles.memberMain}
                     >
-                      <Image source={{ uri: participant.avatarUrl }} style={styles.memberAvatar} />
+                      <UserAvatar
+                        avatarUrl={participant.avatarUrl}
+                        firstName={participant.name || "Người dùng"}
+                        size={44}
+                      />
                       <View style={styles.memberInfo}>
                         <View style={styles.memberTitleRow}>
                           <Text style={styles.memberName}>{participant.name}</Text>
