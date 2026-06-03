@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { Send, Paperclip, Smile, X, AlertCircle, Lock } from "lucide-react";
-import { Message, Attachment } from "../types";
+import { Message, Attachment, User } from "../types";
 import { uploadFileToChatService } from "../chatApi";
 import { Socket } from "socket.io-client";
 
@@ -11,6 +11,7 @@ interface MessageInputProps {
     text: string,
     attachments?: Attachment[],
     replyToId?: string,
+    mentions?: string[],
   ) => void;
   isSending?: boolean;
   replyingTo?: Message | null;
@@ -18,6 +19,8 @@ interface MessageInputProps {
   socket?: Socket | null;
   conversationId?: string;
   isReadOnly?: boolean;
+  participants?: User[];
+  currentUser?: User | null;
 }
 
 export const MessageInput: React.FC<MessageInputProps> = ({
@@ -28,6 +31,8 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   socket,
   conversationId,
   isReadOnly = false,
+  participants = [],
+  currentUser = null,
 }) => {
   const [text, setText] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
@@ -35,6 +40,84 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false); // 👈 Drag-over state
+
+  const [showMentionPopup, setShowMentionPopup] = useState(false);
+  const [mentionQuery, setMentionQuery] = useState("");
+  const [mentionStartIndex, setMentionStartIndex] = useState(-1);
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const [mentionedUsers, setMentionedUsers] = useState<User[]>([]);
+
+  const filteredParticipants = React.useMemo(() => {
+    if (!participants) return [];
+    const otherMembers = participants.filter((p) => p.id !== currentUser?.id);
+    if (!mentionQuery) return otherMembers;
+    const query = mentionQuery.toLowerCase();
+    return otherMembers.filter((p) =>
+      p.name.toLowerCase().includes(query) ||
+      (p.email && p.email.toLowerCase().includes(query))
+    );
+  }, [participants, mentionQuery, currentUser]);
+
+  useEffect(() => {
+    setSelectedIndex(0);
+  }, [filteredParticipants.length]);
+
+  const detectMention = (val: string, cursor: number) => {
+    const textBeforeCursor = val.slice(0, cursor);
+    const lastAtIdx = textBeforeCursor.lastIndexOf("@");
+    if (lastAtIdx === -1) {
+      setShowMentionPopup(false);
+      return;
+    }
+
+    const textAfterAt = textBeforeCursor.slice(lastAtIdx + 1);
+    const isAtStartOrPrecededBySpace = lastAtIdx === 0 || val[lastAtIdx - 1] === " ";
+    const hasNoSpaceAfterAt = !/\s/.test(textAfterAt);
+
+    if (isAtStartOrPrecededBySpace && hasNoSpaceAfterAt) {
+      setShowMentionPopup(true);
+      setMentionQuery(textAfterAt);
+      setMentionStartIndex(lastAtIdx);
+    } else {
+      setShowMentionPopup(false);
+    }
+  };
+
+  const selectMention = (selectedUser: User) => {
+    const input = textInputRef.current;
+    if (!input) return;
+
+    const textBeforeMention = text.slice(0, mentionStartIndex);
+    const textAfterCursor = text.slice(input.selectionEnd ?? text.length);
+
+    const mentionText = `@${selectedUser.name} `;
+    const newText = `${textBeforeMention}${mentionText}${textAfterCursor}`;
+
+    setText(newText);
+    setShowMentionPopup(false);
+
+    setMentionedUsers((prev) => {
+      if (prev.some((u) => u.id === selectedUser.id)) return prev;
+      return [...prev, selectedUser];
+    });
+
+    const newCursorPos = mentionStartIndex + mentionText.length;
+    requestAnimationFrame(() => {
+      input.focus();
+      input.setSelectionRange(newCursorPos, newCursorPos);
+    });
+  };
+
+  const getActiveMentions = (val: string): string[] => {
+    const activeIds: string[] = [];
+    mentionedUsers.forEach((u) => {
+      const mentionPattern = `@${u.name}`;
+      if (val.includes(mentionPattern)) {
+        activeIds.push(u.id);
+      }
+    });
+    return activeIds;
+  };
   const fileInputRef = useRef<HTMLInputElement>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
   const inputToolsRef = useRef<HTMLDivElement>(null);
@@ -111,14 +194,18 @@ export const MessageInput: React.FC<MessageInputProps> = ({
         // Emit stopped typing before sending
         emitTypingEvent("");
         
+        const activeMentionIds = getActiveMentions(text);
+
         onSendMessage(
           text.trim(),
           attachments.length > 0 ? attachments : undefined,
           replyingTo?.id,
+          activeMentionIds.length > 0 ? activeMentionIds : undefined,
         );
         setText("");
         setAttachments([]);
         setUploadError(null);
+        setMentionedUsers([]);
       } catch (error) {
         setUploadError(
           error instanceof Error ? error.message : "Failed to send message",
@@ -128,6 +215,29 @@ export const MessageInput: React.FC<MessageInputProps> = ({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (showMentionPopup && filteredParticipants.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev + 1) % filteredParticipants.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setSelectedIndex((prev) => (prev - 1 + filteredParticipants.length) % filteredParticipants.length);
+        return;
+      }
+      if (e.key === "Enter") {
+        e.preventDefault();
+        selectMention(filteredParticipants[selectedIndex]);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setShowMentionPopup(false);
+        return;
+      }
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -407,6 +517,60 @@ export const MessageInput: React.FC<MessageInputProps> = ({
           ref={inputToolsRef}
           className="relative flex flex-1 items-center rounded-full border border-slate-200 bg-slate-50 px-4 py-2 transition-colors focus-within:border-blue-400 focus-within:bg-white"
         >
+          {showMentionPopup && (
+            <div className="absolute bottom-full left-0 z-30 mb-3 max-h-60 w-72 overflow-y-auto rounded-2xl border border-slate-100 bg-white py-1 shadow-2xl animate-in fade-in slide-in-from-bottom-2 duration-150">
+              {filteredParticipants.length === 0 ? (
+                <div className="px-4 py-3 text-center text-xs text-slate-400 font-medium">
+                  Không tìm thấy thành viên nào
+                </div>
+              ) : (
+                filteredParticipants.map((participant, index) => (
+                  <button
+                    key={participant.id}
+                    type="button"
+                    onClick={() => selectMention(participant)}
+                    onMouseEnter={() => setSelectedIndex(index)}
+                    className={`flex w-full items-center justify-between px-4 py-2.5 text-left text-sm transition-all duration-100 border-l-4 ${
+                      index === selectedIndex
+                        ? "bg-blue-50/70 border-blue-600 text-blue-900"
+                        : "text-slate-700 hover:bg-slate-50 border-transparent"
+                    }`}
+                  >
+                    <div className="flex items-center gap-3 min-w-0">
+                      {participant.avatarUrl ? (
+                        <img
+                          src={participant.avatarUrl}
+                          alt={participant.name}
+                          className="h-8 w-8 rounded-full object-cover ring-1 ring-slate-100 shrink-0"
+                        />
+                      ) : (
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-600 ring-1 ring-slate-100">
+                          {participant.name.charAt(0).toUpperCase()}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="font-semibold text-slate-800 truncate leading-snug">{participant.name}</p>
+                        {participant.email && (
+                          <p className="text-[11px] text-slate-400 truncate leading-none mt-0.5">{participant.email}</p>
+                        )}
+                      </div>
+                    </div>
+                    {participant.role && (
+                      <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold uppercase shrink-0 ${
+                        participant.role === 'teacher' 
+                          ? 'bg-amber-100 text-amber-800' 
+                          : participant.role === 'admin'
+                            ? 'bg-rose-100 text-rose-800'
+                            : 'bg-slate-100 text-slate-600'
+                      }`}>
+                        {participant.role === 'teacher' ? 'GV' : participant.role === 'admin' ? 'Admin' : 'HS'}
+                      </span>
+                    )}
+                  </button>
+                ))
+              )}
+            </div>
+          )}
           <input
             ref={textInputRef}
             type="text"
@@ -415,6 +579,12 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               const newText = e.target.value;
               setText(newText);
               emitTypingEvent(newText);
+              const cursor = e.target.selectionStart || 0;
+              detectMention(newText, cursor);
+            }}
+            onSelect={(e) => {
+              const cursor = e.currentTarget.selectionStart || 0;
+              detectMention(text, cursor);
             }}
             onKeyDown={handleKeyDown}
             placeholder="Nhập tin nhắn..."
