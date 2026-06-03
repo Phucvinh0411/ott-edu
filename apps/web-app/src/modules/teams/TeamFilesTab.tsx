@@ -241,7 +241,7 @@ export default function TeamFilesTab({ teamId: routeTeamId }: TeamFilesTabProps)
       setIsUploading(true);
       setIsUploadMenuOpen(false);
       await apiClient.post(`/attachments/class/${classId}`, formData, {
-        headers: { 'Content-Type': undefined as any }
+        headers: { 'Content-Type': undefined as unknown as string }
       });
       await fetchFiles();
     } catch {
@@ -262,7 +262,7 @@ export default function TeamFilesTab({ teamId: routeTeamId }: TeamFilesTabProps)
         const formData = new FormData();
         formData.append('file', selectedFiles[i]);
         await apiClient.post(`/attachments/class/${classId}`, formData, {
-          headers: { 'Content-Type': undefined as any }
+          headers: { 'Content-Type': undefined as unknown as string }
         });
       }
       alert(`Uploaded ${selectedFiles.length} files successfully!`);
