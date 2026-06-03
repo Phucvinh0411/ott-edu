@@ -20,6 +20,7 @@ import {
   mapApiUserToUser, 
 } from "../../friends/friends.api";
 import { mapApiFriendRequest } from '@/modules/friends/friends.mapper';
+import UserAvatar from "../../../shared/components/UserAvatar";
 
 interface FriendsScreenProps {
   identity: any;
@@ -164,9 +165,10 @@ useEffect(() => {
 
     return (
       <View style={styles.itemContainer}>
-        <Image 
-          source={{ uri: item.avatarUrl || `https://i.pravatar.cc/150?u=${item.email}` }} 
-          style={styles.avatar} 
+        <UserAvatar
+          avatarUrl={item.avatarUrl}
+          firstName={item.fullName || item.name || "Người dùng"}
+          size={48}
         />
         <View style={styles.infoCol}>
           <Text style={styles.name}>{item.fullName || item.name}</Text>
@@ -191,7 +193,11 @@ useEffect(() => {
 
     return (
       <View style={styles.itemContainer}>
-        <Image source={{ uri: sender.avatarUrl || "https://via.placeholder.com/50" }} style={styles.avatar} />
+        <UserAvatar
+          avatarUrl={sender.avatarUrl}
+          firstName={sender.name || sender.fullName || "Người dùng"}
+          size={48}
+        />
         <View style={styles.infoCol}>
           <Text style={styles.name}>{sender.name || sender.fullName}</Text>
           <Text style={styles.codeTxt}>Muốn kết bạn</Text>

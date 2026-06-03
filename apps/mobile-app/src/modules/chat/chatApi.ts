@@ -34,7 +34,7 @@ export function mapApiUserToUser(apiUser: ApiUser): User {
     email: apiUser.email,
     code: apiUser.code,
     role: apiUser.role || 'USER', // Gán default nếu không có role
-    avatarUrl: apiUser.avatarUrl || `https://i.pravatar.cc/150?u=${apiUser._id}`,
+    avatarUrl: apiUser.avatarUrl,
     isOnline: !!apiUser.isOnline, // Ép về boolean chắc chắn
     friendStatus: apiUser.friendStatus || 'none'
   };
@@ -79,7 +79,7 @@ export function mapApiConversationToConversation(
     participants,
     lastMessage: lastMsg,
     unreadCount: 0,
-    avatarUrl: apiConv.avatarUrl || (type === 'class' ? `https://i.pravatar.cc/150?img=30` : null),
+    avatarUrl: apiConv.avatarUrl || null,
     ownerId: apiConv.ownerId || null,
     deputyId: apiConv.deputyId || null,
     myRole: apiConv.myRole || null,

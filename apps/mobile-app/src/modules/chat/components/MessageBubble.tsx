@@ -6,6 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Message, User, LinkPreview as LinkPreviewType } from '../types';
 import { format } from 'date-fns';
+import UserAvatar from '../../../shared/components/UserAvatar';
 import { useVideoPlayer, VideoView } from 'expo-video';
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '😮', '😢', '😡'];
@@ -268,9 +269,10 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
         {!isSelf && (
           showAvatar ? (
             <TouchableOpacity onPress={() => sender && onOpenProfile?.(sender)}>
-              <Image
-                source={{ uri: sender?.avatarUrl || `https://i.pravatar.cc/150?u=${message.senderId}` }}
-                style={styles.avatar as any}
+              <UserAvatar
+                avatarUrl={sender?.avatarUrl}
+                firstName={sender?.name || "Người dùng"}
+                size={28}
               />
             </TouchableOpacity>
           ) : <View style={styles.avatarPlaceholder} />

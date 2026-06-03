@@ -5,6 +5,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Conversation, User } from '../types';
 import { format, isToday, isYesterday } from 'date-fns';
+import UserAvatar from '../../../shared/components/UserAvatar';
 
 interface ConversationItemProps {
   conversation: Conversation;
@@ -76,7 +77,11 @@ export const ConversationItem: React.FC<ConversationItemProps> = ({
     >
       {/* Avatar */}
       <View style={styles.avatarWrap}>
-        <Image source={{ uri: avatarUri }} style={styles.avatar} />
+        <UserAvatar
+          avatarUrl={isPrivate ? other?.avatarUrl : conversation.avatarUrl}
+          firstName={displayName}
+          size={52}
+        />
         {isPrivate && other?.isOnline && <View style={styles.onlineDot} />}
         {!isPrivate && (
           <View style={styles.groupBadge}>

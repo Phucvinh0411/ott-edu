@@ -7,6 +7,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Conversation, Message } from '../types';
 import { sendMessage } from '../chatApi';
+import UserAvatar from "../../../shared/components/UserAvatar";
 
 interface ForwardMessageModalProps {
   visible: boolean;
@@ -118,7 +119,11 @@ export const ForwardMessageModal: React.FC<ForwardMessageModalProps> = ({
         <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
           {isSelected && <Ionicons name="checkmark" size={12} color="#fff" />}
         </View>
-        <Image source={{ uri: displayAvatar }} style={styles.avatar} />
+        <UserAvatar
+          avatarUrl={isPrivate ? other?.avatarUrl : conv.avatarUrl}
+          firstName={displayName}
+          size={44}
+        />
         <View style={styles.itemInfo}>
           <Text style={styles.itemName} numberOfLines={1}>{displayName}</Text>
           {isPrivate && other?.code && (

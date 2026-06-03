@@ -12,6 +12,7 @@ import { useAuth } from '../../auth/AuthProvider';
 import { fetchFriendRequests } from '../../friends/friends.api';
 // 🚀 IMPORT VŨ KHÍ TÌM KIẾM VÀO ĐÂY
 import { useUserSearch } from '../../../shared/hooks/useUserSearch';
+import UserAvatar from '../../../shared/components/UserAvatar';
 
 interface SidebarProps {
   currentMode: ChatMode;
@@ -285,9 +286,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         onPress={() => onStartPrivateChat(u)} // Bấm vào là chat luôn
                         activeOpacity={0.7}
                       >
-                        <Image
-                          source={{ uri: u.avatarUrl || `https://ui-avatars.com/api/?name=${u.fullName || u.name}` }}
-                          style={styles.suggestAvatar}
+                        <UserAvatar
+                          avatarUrl={u.avatarUrl}
+                          firstName={u.fullName || u.name || "Người dùng"}
+                          size={44}
                         />
                         <View style={styles.suggestInfo}>
                           <Text style={styles.suggestName}>{u.fullName || u.name}</Text>

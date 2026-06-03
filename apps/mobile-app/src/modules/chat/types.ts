@@ -34,7 +34,7 @@ export interface User {
   email?: string;
   code?: string;
   role?: string;
-  avatarUrl: string;
+  avatarUrl?: string;
   isOnline: boolean;
   friendStatus?: "none" | "pending" | "friend";
 }
