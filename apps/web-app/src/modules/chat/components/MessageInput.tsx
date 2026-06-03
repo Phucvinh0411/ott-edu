@@ -244,17 +244,14 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     }
   };
 
-  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.currentTarget.files;
-    if (!files) return;
-
+  const uploadFiles = async (files: File[]) => {
     setIsUploading(true);
     setUploadError(null);
 
     try {
       const uploadedAttachments: Attachment[] = [];
 
-      for (const file of Array.from(files)) {
+      for (const file of files) {
         try {
           // Validate file size (max 20MB)
           if (file.size > 20 * 1024 * 1024) {
@@ -293,6 +290,12 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     }
   };
 
+  const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.currentTarget.files;
+    if (!files) return;
+    await uploadFiles(Array.from(files));
+  };
+
   const removeAttachment = (index: number) => {
     setAttachments((prev) => prev.filter((_, i) => i !== index));
   };
@@ -325,44 +328,32 @@ export const MessageInput: React.FC<MessageInputProps> = ({
     const files = e.dataTransfer.files;
     if (!files || files.length === 0) return;
 
-    // Tái sử dụng logic upload từ file input
-    setIsUploading(true);
-    setUploadError(null);
+    await uploadFiles(Array.from(files));
+  };
 
-    try {
-      const uploadedAttachments: Attachment[] = [];
+  const handlePaste = async (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
 
-      for (const file of Array.from(files)) {
-        try {
-          // Validate file size (max 20MB)
-          if (file.size > 20 * 1024 * 1024) {
-            throw new Error(
-              `File "${file.name}" is too large. Maximum size is 20MB.`,
-            );
-          }
-
-          // Upload qua backend
-          const { fileUrl } = await uploadFileToChatService(file);
-
-          uploadedAttachments.push({
-            url: fileUrl,
-            fileType: file.type,
-            fileName: file.name,
-          });
-        } catch (error) {
-          throw new Error(
-            `Failed to upload "${file.name}": ${
-              error instanceof Error ? error.message : "Unknown error"
-            }`,
+    const filesToUpload: File[] = [];
+    for (const item of Array.from(items) as DataTransferItem[]) {
+      if (item.type.startsWith("image/")) {
+        e.preventDefault();
+        const file = item.getAsFile();
+        if (file) {
+          const ext = file.type.split("/")[1] || "png";
+          const pastedFile = new File(
+            [file],
+            `pasted_image_${Date.now()}.${ext}`,
+            { type: file.type }
           );
+          filesToUpload.push(pastedFile);
         }
       }
+    }
 
-      setAttachments((prev) => [...prev, ...uploadedAttachments]);
-    } catch (error) {
-      setUploadError(error instanceof Error ? error.message : "Upload failed");
-    } finally {
-      setIsUploading(false);
+    if (filesToUpload.length > 0) {
+      await uploadFiles(filesToUpload);
     }
   };
 
@@ -449,24 +440,56 @@ export const MessageInput: React.FC<MessageInputProps> = ({
       )}
 
       {attachments.length > 0 && (
-        <div className="flex flex-wrap gap-2 px-2">
-          {attachments.map((attachment, index) => (
-            <div
-              key={index}
-              className="flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-sm"
-            >
-              <span className="max-w-xs truncate text-slate-700">
-                📎 {attachment.fileName}
-              </span>
-              <button
-                type="button"
-                onClick={() => removeAttachment(index)}
-                className="ml-1 rounded p-0.5 hover:bg-slate-200"
+        <div className="flex flex-wrap gap-3 px-2">
+          {attachments.map((attachment, index) => {
+            const isImage = attachment.fileType?.startsWith("image/");
+            if (isImage) {
+              return (
+                <div
+                  key={index}
+                  className="relative group h-16 w-16 shrink-0 overflow-hidden rounded-xl border border-slate-200 bg-slate-50 shadow-sm transition-all hover:shadow-md"
+                >
+                  <img
+                    src={attachment.url}
+                    alt={attachment.fileName}
+                    className="h-full w-full object-cover"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeAttachment(index)}
+                    className="absolute -top-1 -right-1 rounded-full bg-rose-500 p-1 text-white shadow transition-all hover:bg-rose-600 scale-90 opacity-0 group-hover:opacity-100 group-hover:scale-100 duration-150"
+                  >
+                    <X size={12} />
+                  </button>
+                  {/* Fallback delete button for touch devices */}
+                  <button
+                    type="button"
+                    onClick={() => removeAttachment(index)}
+                    className="absolute top-1 right-1 rounded-full bg-slate-900/60 p-0.5 text-white md:hidden"
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+              );
+            }
+            return (
+              <div
+                key={index}
+                className="flex items-center gap-1.5 rounded-full bg-slate-100 pl-3 pr-2 py-1 text-sm border border-slate-200 hover:bg-slate-200 transition-colors"
               >
-                <X size={14} />
-              </button>
-            </div>
-          ))}
+                <span className="max-w-xs truncate text-slate-700 font-medium">
+                  📎 {attachment.fileName}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => removeAttachment(index)}
+                  className="rounded-full p-0.5 hover:bg-slate-300 text-slate-500 hover:text-slate-700 transition-colors"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -587,6 +610,7 @@ export const MessageInput: React.FC<MessageInputProps> = ({
               detectMention(text, cursor);
             }}
             onKeyDown={handleKeyDown}
+            onPaste={handlePaste}
             placeholder="Nhập tin nhắn..."
             disabled={isSending || isUploading}
             className="flex-1 border-none bg-transparent text-sm text-slate-900 outline-none placeholder:text-slate-400 disabled:opacity-50"
