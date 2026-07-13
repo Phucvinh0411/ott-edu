@@ -100,8 +100,6 @@ services:
     depends_on:
       ai-postgres-db:
         condition: service_healthy
-      ollama-server:
-        condition: service_started
     # ports:
     #   - "${AI_PORT:-8082}:8080"
     networks:
@@ -188,63 +186,10 @@ services:
     networks:
       - app-network
 
-  ollama-server:
-    image: ollama/ollama:latest
-    container_name: ollama-server
-    restart: always
-    volumes:
-      - ollama_data:/root/.ollama
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: ${GPU_DRIVER:-}
-    #           count: all
-    #           capabilities: [gpu]
-    ports:
-      - "11434:11434"
-    networks:
-      - app-network
-
-  ai-engine-init:
-    image: ollama/ollama:latest
-    container_name: ai-engine-init
-    restart: "no"
-    env_file: .env
-    depends_on:
-      - ollama-server
-    entrypoint: ["/bin/bash", "-c"]
-    command:
-      - |
-        wait_and_pull() {
-          local host=$$1 model=$$2
-          
-          # Trỏ lệnh ollama xuống host của CPU hoặc GPU thay vì localhost
-          export OLLAMA_HOST=http://$$host
-          
-          echo "Waiting for $$host..."
-          # Dùng ollama list để kiểm tra kết nối thay vì curl
-          until ollama list >/dev/null 2>&1; do sleep 2; done
-          echo "$$host is ready"
-          
-          if ollama list | grep -q "$$(echo $$model | cut -d: -f1)"; then
-            echo "Model '$$model' already exists on $$host"
-          else
-            echo "Pulling '$$model' on $$host... (This may take a while)"
-            ollama pull $$model
-          fi
-        }
-        
-        wait_and_pull "ollama-server:11434" "$$OLLAMA_CHAT_MODEL"
-        echo "All models ready!"
-    networks:
-      - app-network
-
 volumes:
   db_data:
   mongo_data:
   ai_pg_data:
-  ollama_data:
 
 networks:
   app-network:

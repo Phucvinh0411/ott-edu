@@ -15,12 +15,6 @@ spring:
         jdbc:
           lob:
             non_contextual_creation: true
-  ai:
-    ollama:
-      chat:
-        enabled: false
-      embedding:
-        enabled: false
   servlet:
     multipart:
       max-file-size: 50MB
@@ -35,18 +29,15 @@ spring:
 
 app:
   ai:
-    ollama:
-      base-url: ${OLLAMA_BASE_URL:http://ollama-server:11434}
-      model: ${OLLAMA_CHAT_MODEL:qwen2.5:7b-instruct}
-      keep-alive: ${OLLAMA_KEEP_ALIVE:-1m}
+    openrouter:
+      base-url: ${OPENROUTER_BASE_URL:https://openrouter.ai/api/v1}
+      api-key: ${OPENROUTER_API_KEY}
+      model: ${OPENROUTER_CHAT_MODEL:openai/gpt-4o-mini}
+      site-url: ${OPENROUTER_SITE_URL:}
+      app-name: ${OPENROUTER_APP_NAME:ott-edu}
     chunking:
       min-chunk-size: 300
       max-chunk-size: 500
-    http:
-      pool:
-        max-total: 50
-        max-per-route: 25
-        connection-ttl-seconds: 300
 
 server:
   port: 8080
