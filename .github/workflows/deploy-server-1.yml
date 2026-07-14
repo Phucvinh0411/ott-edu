@@ -2,8 +2,8 @@ name: Deploy API Microservices to AWS Server 1
 
 on:
   push:
-    branches: [ main ]
-    # Chỉ chạy pipeline nếu có sự thay đổi file trong các thư mục này
+    branches:
+      - main
     paths:
       - 'services/core-service/**'
       - 'services/assignment-service/**'
@@ -16,12 +16,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      - name: Set up JDK 17 # Hoặc phiên bản Java bạn dùng (11, 21)
+      - name: Set up JDK 17
         uses: actions/setup-java@v3
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: maven # Hoặc gradle nếu bạn dùng Gradle
+          cache: maven
 
       - name: Login to Docker Hub
         uses: docker/login-action@v2
@@ -29,10 +29,6 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
 
-      # ---------------------------------------------
-      # Tự động kiểm tra thay đổi và Build từng Service
-      # ---------------------------------------------
-      
       - name: Build & Push Core Service
         uses: docker/build-push-action@v4
         with:
@@ -66,6 +62,52 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             mkdir -p ~/smile-edu && cd ~/smile-edu
-            # (Đoạn script này sẽ tải file docker-compose.yml về hoặc cập nhật tại đây)
+            
+            # Tự động tạo file docker-compose.yml trên EC2 Server 1
+            cat << 'EOF' > docker-compose.yml
+            version: '3.8'
+
+            services:
+              mysql-db:
+                image: mysql:8.0
+                container_name: mysql-db
+                ports:
+                  - "3306:3306"
+                environment:
+                  MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+                  MYSQL_DATABASE: ${MYSQL_DATABASE}
+                volumes:
+                  - /home/ubuntu/smile-edu-data:/var/lib/mysql
+
+              core-service:
+                image: ${{ secrets.DOCKER_USERNAME }}/smile-edu-core:latest
+                container_name: core-service
+                ports:
+                  - "8080:8080"
+                depends_on:
+                  - mysql-db
+                environment:
+                  - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/${MYSQL_DATABASE}
+                  - CHAT_SERVICE_URL=http://${{ secrets.SERVER_2_IP }}:3000
+
+              assignment-service:
+                image: ${{ secrets.DOCKER_USERNAME }}/smile-edu-assignment:latest
+                container_name: assignment-service
+                ports:
+                  - "8081:8081"
+                depends_on:
+                  - mysql-db
+                environment:
+                  - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/${MYSQL_DATABASE}
+
+              ai-service:
+                image: ${{ secrets.DOCKER_USERNAME }}/smile-edu-ai:latest
+                container_name: ai-service
+                ports:
+                  - "8082:8082"
+                depends_on:
+                  - mysql-db
+            EOF
+
             docker compose pull
             docker compose up -d --remove-orphans
