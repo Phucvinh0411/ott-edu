@@ -6,7 +6,7 @@ on:
       - main
     paths:
       - 'services/assignment-service/**'
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 jobs:
   build-and-push:
