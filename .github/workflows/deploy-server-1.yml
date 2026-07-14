@@ -85,6 +85,8 @@ jobs:
                 environment:
                   - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/${MYSQL_DATABASE}
                   - CHAT_SERVICE_URL=http://${{ secrets.SERVER_2_IP }}:3000
+                  - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD}
+                  - MONGO_URI=${MONGO_URI}
 
               assignment-service:
                 image: ${{ secrets.DOCKER_USERNAME }}/smile-edu-assignment:latest
@@ -95,6 +97,7 @@ jobs:
                   - mysql-db
                 environment:
                   - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/${MYSQL_DATABASE}
+                  - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD}
 
               ai-service:
                 image: ${{ secrets.DOCKER_USERNAME }}/smile-edu-ai:latest
@@ -103,6 +106,8 @@ jobs:
                   - "8082:8082"
                 depends_on:
                   - mysql-db
+                environment:
+                  - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
             EOF
 
             docker compose pull
