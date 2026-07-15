@@ -146,8 +146,8 @@ jobs:
                   - "443:443"
                 volumes:
                   - /home/ubuntu/smile-edu/gateway/nginx.conf:/etc/nginx/nginx.conf
-                  - /home/ubuntu/smile-edu/certs/dev.crt:/etc/nginx/certs/dev.crt:ro
-                  - /home/ubuntu/smile-edu/certs/dev.key:/etc/nginx/certs/dev.key:ro
+                  # SỬA DÒNG NÀY: Map nguyên cả thư mục certs thay vì map file lẻ!
+                  - /home/ubuntu/smile-edu/certs:/etc/nginx/certs:ro
                 depends_on:
                   - core-service
                   - assignment-service
