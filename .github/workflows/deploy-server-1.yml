@@ -120,6 +120,17 @@ jobs:
                   - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD}
                   - MONGO_URI=${MONGO_URI}
                   - APP_CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000,http://web-app:3000,https://ott-edu.vercel.app,https://api.hnpvinh.io.vn
+                  - MAIL_HOST=${MAIL_HOST:-smtp.gmail.com}
+                  - MAIL_PORT=${MAIL_PORT:-587}
+                  - MAIL_USERNAME=${MAIL_USERNAME:-}
+                  - MAIL_PASSWORD=${MAIL_PASSWORD:-}
+                  - MAIL_FROM=${MAIL_FROM:-}
+                  - MAIL_SMTP_AUTH=${MAIL_SMTP_AUTH:-true}
+                  - MAIL_SMTP_STARTTLS_ENABLE=${MAIL_SMTP_STARTTLS_ENABLE:-true}
+                  - AWS_S3_REGION=${AWS_S3_REGION:-ap-southeast-1}
+                  - AWS_S3_BUCKET=${AWS_S3_BUCKET:-product-images-hau}
+                  - AWS_S3_ACCESS_KEY=${AWS_S3_ACCESS_KEY:-}
+                  - AWS_S3_SECRET_KEY=${AWS_S3_SECRET_KEY:-}
 
               assignment-service:
                 image: ${{ secrets.DOCKER_USERNAME }}/smile-edu-assignment:latest
