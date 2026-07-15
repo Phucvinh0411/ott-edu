@@ -72,6 +72,7 @@ jobs:
             mkdir -p ~/smile-edu && cd ~/smile-edu
             
             # Copy certificates resolving symbolic links
+            sudo rm -rf /home/ubuntu/smile-edu/certs
             mkdir -p /home/ubuntu/smile-edu/certs
             sudo cp -L /etc/letsencrypt/live/hoangkhaq.site/fullchain.pem /home/ubuntu/smile-edu/certs/dev.crt
             sudo cp -L /etc/letsencrypt/live/hoangkhaq.site/privkey.pem /home/ubuntu/smile-edu/certs/dev.key
