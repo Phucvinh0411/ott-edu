@@ -119,6 +119,7 @@ jobs:
                   - CHAT_SERVICE_URL=http://${{ secrets.SERVER_2_IP }}:3000
                   - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD}
                   - MONGO_URI=${MONGO_URI}
+                  - APP_CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000,http://web-app:3000,https://ott-edu.vercel.app,https://api.hnpvinh.io.vn
 
               assignment-service:
                 image: ${{ secrets.DOCKER_USERNAME }}/smile-edu-assignment:latest
@@ -130,6 +131,7 @@ jobs:
                 environment:
                   - SPRING_DATASOURCE_URL=jdbc:mysql://mysql-db:3306/${MYSQL_DATABASE}
                   - MYSQL_PASSWORD=${MYSQL_ROOT_PASSWORD}
+                  - APP_CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000,http://web-app:3000,https://ott-edu.vercel.app,https://api.hnpvinh.io.vn
 
               ai-service:
                 image: ${{ secrets.DOCKER_USERNAME }}/smile-edu-ai:latest
