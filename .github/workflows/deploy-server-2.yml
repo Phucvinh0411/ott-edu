@@ -39,25 +39,7 @@ jobs:
             mkdir -p ~/smile-edu-chat
             cd ~/smile-edu-chat
             
-            # Xử lý chứng chỉ cho Server 2
-            sudo rm -rf /home/ubuntu/smile-edu-chat/certs
-            mkdir -p /home/ubuntu/smile-edu-chat/certs
-            
-            if sudo test -f /etc/letsencrypt/live/chat.hnpvinh.io.vn/fullchain.pem; then
-                echo "=== Phát hiện chứng chỉ Let's Encrypt thật, tiến hành copy ==="
-                sudo cp -L /etc/letsencrypt/live/chat.hnpvinh.io.vn/fullchain.pem /home/ubuntu/smile-edu-chat/certs/dev.crt
-                sudo cp -L /etc/letsencrypt/live/chat.hnpvinh.io.vn/privkey.pem /home/ubuntu/smile-edu-chat/certs/dev.key
-            else
-                echo "=== Không tìm thấy Cert thật, tự động sinh Cert tự ký cho chat.hnpvinh.io.vn ==="
-                openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-                  -keyout /home/ubuntu/smile-edu-chat/certs/dev.key \
-                  -out /home/ubuntu/smile-edu-chat/certs/dev.crt \
-                  -subj "/C=VN/ST=HCM/L=HCM/O=SmileEdu/CN=chat.hnpvinh.io.vn"
-            fi
-            
-            sudo chmod 644 /home/ubuntu/smile-edu-chat/certs/dev.crt /home/ubuntu/smile-edu-chat/certs/dev.key
-            
-            # 1. Tạo file docker-compose.yml
+            # Tạo file docker-compose.yml tối giản cho Server 2 (không cần Nginx)
             cat << 'EOF' > docker-compose.yml
             version: '3.8'
             services:
@@ -65,55 +47,18 @@ jobs:
                 image: ${{ secrets.DOCKER_USERNAME }}/smile-edu-chat:latest
                 container_name: chat-service
                 restart: always
-                expose:
-                  - "3001"
+                network_mode: "host"
                 environment:
                   - MONGO_CHAT_URI=${{ secrets.MONGODB_URI }}
-            
-              nginx:
-                image: nginx:alpine
-                container_name: chat-nginx
-                restart: always
-                ports:
-                  - "80:80"
-                  - "443:443"
-                volumes:
-                  - ./nginx.conf:/etc/nginx/nginx.conf
-                  - /home/ubuntu/smile-edu-chat/certs:/etc/nginx/certs:ro
-                depends_on:
-                  - chat-service
+                  - MEDIASOUP_LISTEN_IP=0.0.0.0
+                  - MEDIASOUP_ANNOUNCED_IP=${{ secrets.SERVER_2_IP }}
+                  - MEDIASOUP_RTC_MIN_PORT=40000
+                  - MEDIASOUP_RTC_MAX_PORT=40020
             EOF
             
-            # 2. Tạo file nginx.conf
-            cat << 'EOF' > nginx.conf
-            events { worker_connections 1024; }
-            http {
-                server {
-                    listen 80;
-                    server_name chat.hnpvinh.io.vn;
-                    return 301 https://$host$request_uri;
-                }
-                server {
-                    listen 443 ssl;
-                    server_name chat.hnpvinh.io.vn;
-                    
-                    ssl_certificate /etc/nginx/certs/dev.crt;
-                    ssl_certificate_key /etc/nginx/certs/dev.key;
-
-                    location / {
-                        proxy_pass http://chat-service:3001;
-                        proxy_http_version 1.1;
-                        proxy_set_header Upgrade $http_upgrade;
-                        proxy_set_header Connection "upgrade";
-                        proxy_set_header Host $host;
-                        proxy_set_header X-Real-IP $remote_addr;
-                        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-                        proxy_set_header X-Forwarded-Proto $scheme;
-                    }
-                }
-            }
-            EOF
+            # Hạ container Nginx cũ (nếu có) để giải phóng cổng 80/443
+            docker compose down --remove-orphans
             
-            # 3. Triển khai
+            # Khởi chạy lại chat-service
             docker compose pull
             docker compose up -d --force-recreate

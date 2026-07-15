@@ -91,6 +91,9 @@ jobs:
             # Cấp quyền đọc công khai cho file cert để container Nginx khởi chạy thông suốt
             sudo chmod 644 /home/ubuntu/smile-edu/certs/dev.crt /home/ubuntu/smile-edu/certs/dev.key
             
+            # Thay thế địa chỉ chat-service:3001 bằng IP thật của Server 2 trong nginx.conf
+            sed -i 's/chat-service:3001/${{ secrets.SERVER_2_IP }}:3001/g' /home/ubuntu/smile-edu/gateway/nginx.conf
+            
             # Tự động tạo file docker-compose.yml trên EC2 Server 1
             cat << 'EOF' > docker-compose.yml
             version: '3.8'
