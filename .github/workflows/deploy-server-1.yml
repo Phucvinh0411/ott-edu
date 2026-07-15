@@ -69,13 +69,22 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            mkdir -p ~/smile-edu && cd ~/smile-edu
+            mkdir -p ~/smile-edu/certs && cd ~/smile-edu
             
-            # Copy certificates resolving symbolic links
-            sudo rm -rf /home/ubuntu/smile-edu/certs
-            mkdir -p /home/ubuntu/smile-edu/certs
-            sudo cp -L /etc/letsencrypt/live/api.hnpvinh.io.vn/fullchain.pem /home/ubuntu/smile-edu/certs/dev.crt
-            sudo cp -L /etc/letsencrypt/live/api.hnpvinh.io.vn/privkey.pem /home/ubuntu/smile-edu/certs/dev.key
+            # Xử lý chứng chỉ thông minh bọc lỗi: Nếu chưa có Let's Encrypt thật thì tự tạo cert giả lập
+            if [ -f /etc/letsencrypt/live/api.hnpvinh.io.vn/fullchain.pem ]; then
+                echo "=== Phát hiện chứng chỉ Let's Encrypt thật, tiến hành copy ==="
+                sudo cp -L /etc/letsencrypt/live/api.hnpvinh.io.vn/fullchain.pem /home/ubuntu/smile-edu/certs/dev.crt
+                sudo cp -L /etc/letsencrypt/live/api.hnpvinh.io.vn/privkey.pem /home/ubuntu/smile-edu/certs/dev.key
+            else
+                echo "=== Không tìm thấy Cert thật, tự động sinh Cert tự ký theo domain hnpvinh.io.vn ==="
+                openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+                  -keyout /home/ubuntu/smile-edu/certs/dev.key \
+                  -out /home/ubuntu/smile-edu/certs/dev.crt \
+                  -subj "/C=VN/ST=HCM/L=HCM/O=SmileEdu/CN=api.hnpvinh.io.vn"
+            fi
+            
+            # Cấp quyền đọc công khai cho file cert để container Nginx khởi chạy thông suốt
             sudo chmod 644 /home/ubuntu/smile-edu/certs/dev.crt /home/ubuntu/smile-edu/certs/dev.key
             
             # Tự động tạo file docker-compose.yml trên EC2 Server 1
@@ -145,5 +154,7 @@ jobs:
                   - ai-service
             EOF
 
+            # Kéo image mới và ép khởi chạy lại toàn bộ hạ tầng rũ bỏ cache volume kẹt
+            docker compose down
             docker compose pull
-            docker compose up -d --remove-orphans
+            docker compose up -d --remove-orphans --force-recreate
