@@ -71,6 +71,12 @@ jobs:
           script: |
             mkdir -p ~/smile-edu && cd ~/smile-edu
             
+            # Copy certificates resolving symbolic links
+            mkdir -p /home/ubuntu/smile-edu/certs
+            sudo cp -L /etc/letsencrypt/live/hoangkhaq.site/fullchain.pem /home/ubuntu/smile-edu/certs/dev.crt
+            sudo cp -L /etc/letsencrypt/live/hoangkhaq.site/privkey.pem /home/ubuntu/smile-edu/certs/dev.key
+            sudo chmod 644 /home/ubuntu/smile-edu/certs/dev.crt /home/ubuntu/smile-edu/certs/dev.key
+            
             # Tự động tạo file docker-compose.yml trên EC2 Server 1
             cat << 'EOF' > docker-compose.yml
             version: '3.8'
@@ -130,9 +136,8 @@ jobs:
                   - "443:443"
                 volumes:
                   - /home/ubuntu/smile-edu/gateway/nginx.conf:/etc/nginx/nginx.conf
-                  - /etc/letsencrypt/live/hoangkhaq.site/fullchain.pem:/etc/nginx/certs/dev.crt:ro
-                  - /etc/letsencrypt/live/hoangkhaq.site/privkey.pem:/etc/nginx/certs/dev.key:ro
-                  - /etc/letsencrypt:/etc/letsencrypt:ro
+                  - /home/ubuntu/smile-edu/certs/dev.crt:/etc/nginx/certs/dev.crt:ro
+                  - /home/ubuntu/smile-edu/certs/dev.key:/etc/nginx/certs/dev.key:ro
                 depends_on:
                   - core-service
                   - assignment-service
