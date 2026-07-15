@@ -1,5 +1,61 @@
-script: |
+name: Deploy Chat Service to AWS Server 2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and Push Chat Image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./services/chat-service
+          push: true
+          tags: ${{ secrets.DOCKER_USERNAME }}/smile-edu-chat:latest
+
+  deploy-to-ec2:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Execute SSH commands on Server 2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_2_IP }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          script: |
+            mkdir -p ~/smile-edu-chat
             cd ~/smile-edu-chat
+            
+            # Xử lý chứng chỉ cho Server 2
+            sudo rm -rf /home/ubuntu/smile-edu-chat/certs
+            mkdir -p /home/ubuntu/smile-edu-chat/certs
+            
+            if sudo test -f /etc/letsencrypt/live/chat.hnpvinh.io.vn/fullchain.pem; then
+                echo "=== Phát hiện chứng chỉ Let's Encrypt thật, tiến hành copy ==="
+                sudo cp -L /etc/letsencrypt/live/chat.hnpvinh.io.vn/fullchain.pem /home/ubuntu/smile-edu-chat/certs/dev.crt
+                sudo cp -L /etc/letsencrypt/live/chat.hnpvinh.io.vn/privkey.pem /home/ubuntu/smile-edu-chat/certs/dev.key
+            else
+                echo "=== Không tìm thấy Cert thật, tự động sinh Cert tự ký cho chat.hnpvinh.io.vn ==="
+                openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+                  -keyout /home/ubuntu/smile-edu-chat/certs/dev.key \
+                  -out /home/ubuntu/smile-edu-chat/certs/dev.crt \
+                  -subj "/C=VN/ST=HCM/L=HCM/O=SmileEdu/CN=chat.hnpvinh.io.vn"
+            fi
+            
+            sudo chmod 644 /home/ubuntu/smile-edu-chat/certs/dev.crt /home/ubuntu/smile-edu-chat/certs/dev.key
             
             # 1. Tạo file docker-compose.yml
             cat << 'EOF' > docker-compose.yml
@@ -10,9 +66,9 @@ script: |
                 container_name: chat-service
                 restart: always
                 expose:
-                  - "3000"
+                  - "3001"
                 environment:
-                  - MONGODB_URI=${{ secrets.MONGODB_URI }}
+                  - MONGO_CHAT_URI=${{ secrets.MONGODB_URI }}
             
               nginx:
                 image: nginx:alpine
@@ -23,7 +79,7 @@ script: |
                   - "443:443"
                 volumes:
                   - ./nginx.conf:/etc/nginx/nginx.conf
-                  - /etc/letsencrypt:/etc/letsencrypt:ro
+                  - /home/ubuntu/smile-edu-chat/certs:/etc/nginx/certs:ro
                 depends_on:
                   - chat-service
             EOF
@@ -41,11 +97,11 @@ script: |
                     listen 443 ssl;
                     server_name chat.hnpvinh.io.vn;
                     
-                    ssl_certificate /etc/letsencrypt/live/chat.hnpvinh.io.vn/fullchain.pem;
-                    ssl_certificate_key /etc/letsencrypt/live/chat.hnpvinh.io.vn/privkey.pem;
+                    ssl_certificate /etc/nginx/certs/dev.crt;
+                    ssl_certificate_key /etc/nginx/certs/dev.key;
 
                     location / {
-                        proxy_pass http://chat-service:3000;
+                        proxy_pass http://chat-service:3001;
                         proxy_http_version 1.1;
                         proxy_set_header Upgrade $http_upgrade;
                         proxy_set_header Connection "upgrade";
