@@ -69,10 +69,14 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
-            mkdir -p ~/smile-edu/certs && cd ~/smile-edu
+            # Xóa sạch thư mục certs lỗi cũ để rũ bỏ các thư mục rỗng do Docker tự động tạo sai trước đó
+            sudo rm -rf /home/ubuntu/smile-edu/certs
+            mkdir -p /home/ubuntu/smile-edu/certs
+            cd ~/smile-edu
             
             # Xử lý chứng chỉ thông minh bọc lỗi: Nếu chưa có Let's Encrypt thật thì tự tạo cert giả lập
-            if [ -f /etc/letsencrypt/live/api.hnpvinh.io.vn/fullchain.pem ]; then
+            # Cần dùng sudo test để kiểm tra file vì thư mục /etc/letsencrypt giới hạn quyền truy cập
+            if sudo test -f /etc/letsencrypt/live/api.hnpvinh.io.vn/fullchain.pem; then
                 echo "=== Phát hiện chứng chỉ Let's Encrypt thật, tiến hành copy ==="
                 sudo cp -L /etc/letsencrypt/live/api.hnpvinh.io.vn/fullchain.pem /home/ubuntu/smile-edu/certs/dev.crt
                 sudo cp -L /etc/letsencrypt/live/api.hnpvinh.io.vn/privkey.pem /home/ubuntu/smile-edu/certs/dev.key
