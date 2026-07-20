@@ -92,7 +92,7 @@ export type UploadAvatarResult = {
   avatarUrl: string;
 };
 
-type LoginResponse = {
+export type LoginResponse = {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
@@ -143,9 +143,8 @@ export async function getDepartmentsBySchoolId(schoolId: number): Promise<Depart
   return httpService.get<DepartmentOption[]>(`/schools/${schoolId}/departments`);
 }
 
-export async function registerAccount(payload: RegisterPayload): Promise<string> {
-  const response = await httpService.post<string>("/auth/register", payload);
-  return response || "Tao tai khoan thanh cong!";
+export async function registerAccount(payload: RegisterPayload): Promise<LoginResponse> {
+  return httpService.post<LoginResponse>("/auth/register", payload);
 }
 
 export async function forgotPassword(payload: ForgotPasswordPayload): Promise<OtpChallenge> {

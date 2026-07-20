@@ -138,7 +138,7 @@ export default function LoginPage() {
         <AuthHeader title="Đăng nhập" description="Sử dụng tài khoản trường để truy cập hệ thống." />
 
         {/* Sleek Ultra-Premium Capsule Tabs for switching login method */}
-        <div className="flex bg-slate-100/80 p-1.5 rounded-2xl mb-8 border border-slate-200/50 backdrop-blur-sm shadow-inner gap-1">
+        {/* <div className="flex bg-slate-100/80 p-1.5 rounded-2xl mb-8 border border-slate-200/50 backdrop-blur-sm shadow-inner gap-1">
           <button
             type="button"
             onClick={() => setLoginMethod("password")}
@@ -161,7 +161,7 @@ export default function LoginPage() {
             <QrCode className="w-4 h-4 mr-2" />
             Mã QR
           </button>
-        </div>
+        </div> */}
 
         {loginMethod === "password" ? (
           <form onSubmit={handleSubmit} className="space-y-6" noValidate>

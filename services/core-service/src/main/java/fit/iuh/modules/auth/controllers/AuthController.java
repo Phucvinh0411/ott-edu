@@ -130,10 +130,28 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<ApiSuccessResponse<String>> register(@RequestBody RegisterRequest request) {
-        String result = authService.register(request);
+    public ResponseEntity<ApiSuccessResponse<LoginResponse>> register(
+            @RequestBody RegisterRequest request,
+            @CookieValue(value = REFRESH_COOKIE_NAME, required = false) String refreshTokenCookie
+    ) {
+        LoginResponse response = authService.register(request);
+
+        Map<String, String> tokenMap = decryptCookieMap(refreshTokenCookie);
+        tokenMap.put(response.getUser().getEmail(), response.getRefreshToken());
+
+        String encryptedCookieValue = encryptCookieMap(tokenMap);
+
+        ResponseCookie refreshCookie = ResponseCookie.from(REFRESH_COOKIE_NAME, encryptedCookieValue)
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .sameSite(cookieSameSite)
+                .path(cookiePath)
+                .maxAge(jwtService.getRefreshTokenExpirationMs() / 1000)
+                .build();
+
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponseFactory.success(HttpStatus.CREATED, "Đăng ký tài khoản thành công.", result));
+                .header(HttpHeaders.SET_COOKIE, refreshCookie.toString())
+                .body(ApiResponseFactory.success(HttpStatus.CREATED, "Đăng ký tài khoản thành công.", response));
     }
 
     @PostMapping("/login")

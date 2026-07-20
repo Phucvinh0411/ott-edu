@@ -69,7 +69,7 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     @Transactional
-    public String register(RegisterRequest request) {
+    public LoginResponse register(RegisterRequest request) {
         if (accountRepository.existsByEmail(request.getEmail())) {
             throw new RuntimeException("Email đã được sử dụng!");
         }
@@ -135,7 +135,23 @@ public class AuthServiceImpl implements AuthService {
 
         profileRepository.save(newProfile);
 
-        return "Tạo tài khoản thành công!";
+        String accessToken = jwtService.generateAccessToken(newAccount);
+        String refreshToken = jwtService.generateRefreshToken(newAccount);
+
+        RefreshToken refreshTokenEntity = RefreshToken.builder()
+                .account(newAccount)
+                .tokenValue(refreshToken)
+                .expiresAt(LocalDateTime.now().plusSeconds(jwtService.getRefreshTokenExpirationMs() / 1000))
+                .revoked(false)
+                .build();
+        refreshTokenRepository.save(refreshTokenEntity);
+
+        return LoginResponse.builder()
+                .accessToken(accessToken)
+                .refreshToken(refreshToken)
+                .expiresIn(jwtService.getAccessTokenExpirationMs() / 1000)
+                .user(buildUserResponse(newAccount))
+                .build();
     }
 
     @Override

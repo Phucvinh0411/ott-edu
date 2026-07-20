@@ -310,6 +310,14 @@ class AuthServiceImplTest {
                 .role(Role.ROLE_STUDENT)
                 .build();
 
+        AuthUserResponse authUserResponse = AuthUserResponse.builder()
+                .accountId(5L)
+                .email("newuser@test.local")
+                .firstName("Alice")
+                .lastName("Smith")
+                .roles(List.of("ROLE_STUDENT"))
+                .build();
+
         when(accountRepository.existsByEmail("newuser@test.local")).thenReturn(false);
         when(jwtService.isOtpVerifiedTokenForPurpose("valid-otp-token", OtpPurpose.REGISTER)).thenReturn(true);
         when(jwtService.extractSubject("valid-otp-token")).thenReturn("newuser@test.local");
@@ -317,14 +325,24 @@ class AuthServiceImplTest {
         when(accountRepository.save(any(Account.class))).thenReturn(savedAccount);
         when(schoolRepository.findById(10L)).thenReturn(Optional.of(school));
         when(departmentRepository.findById(20L)).thenReturn(Optional.of(department));
+        when(jwtService.generateAccessToken(any())).thenReturn("access-token-123");
+        when(jwtService.generateRefreshToken(any())).thenReturn("refresh-token-456");
+        when(jwtService.getRefreshTokenExpirationMs()).thenReturn(604800000L);
+        when(jwtService.getAccessTokenExpirationMs()).thenReturn(3600000L);
+        when(authMapper.toAuthUserResponse(any(), any())).thenReturn(authUserResponse);
+        when(teamMemberRepository.findByAccountId(5L)).thenReturn(List.of());
 
         // Act
-        String result = authService.register(request);
+        LoginResponse result = authService.register(request);
 
         // Assert
-        assertEquals("Tạo tài khoản thành công!", result);
+        assertNotNull(result);
+        assertEquals("access-token-123", result.getAccessToken());
+        assertEquals("refresh-token-456", result.getRefreshToken());
+        assertEquals("newuser@test.local", result.getUser().getEmail());
         verify(accountRepository).save(any(Account.class));
         verify(profileRepository).save(any(Profile.class));
+        verify(refreshTokenRepository).save(any(RefreshToken.class));
     }
 
     @Test

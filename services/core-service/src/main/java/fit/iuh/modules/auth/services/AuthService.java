@@ -17,7 +17,7 @@ import fit.iuh.modules.auth.dtos.register.RegisterRequest;
 import org.springframework.web.multipart.MultipartFile;
 
 public interface AuthService {
-    String register(RegisterRequest request);
+    LoginResponse register(RegisterRequest request);
 
     LoginResponse login(LoginRequest request);
 
