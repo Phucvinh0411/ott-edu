@@ -2,8 +2,19 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { registerAccount, sendRegisterOtp, verifyOtp } from "@/services/auth/auth.service";
 import { getRegisterOtpState, setRegisterOtpState, clearRegisterOtpState } from "@/services/auth/otp-flow-store";
+import { registerSession, setActiveSessionClassId } from "@/services/auth/auth-session-store";
+
+import {
+  AuthCard,
+  AuthHeader,
+  AuthPageContainer,
+  AuthStatusAlert,
+  AuthSubmitButton,
+} from "./components";
 
 function splitFullName(fullName: string): { firstName: string; lastName: string } {
   const parts = fullName
@@ -27,7 +38,7 @@ function splitFullName(fullName: string): { firstName: string; lastName: string 
 export default function VerifyRegisterPage() {
   const router = useRouter();
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-  const [timeLeft, setTimeLeft] = useState(48); // 48 seconds
+  const [timeLeft, setTimeLeft] = useState(48);
   const [maskedEmail, setMaskedEmail] = useState("m***@example.com");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -86,7 +97,7 @@ export default function VerifyRegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!otp.every(digit => digit !== "")) {
+    if (!otp.every((digit) => digit !== "")) {
       return;
     }
 
@@ -110,7 +121,7 @@ export default function VerifyRegisterPage() {
 
       // 2. Register account immediately using saved form data + verifiedToken
       const normalizedName = splitFullName(state.form.fullName);
-      const responseMessage = await registerAccount({
+      const loginResponse = await registerAccount({
         email: state.email,
         password: state.form.password,
         firstName: normalizedName.firstName,
@@ -122,14 +133,39 @@ export default function VerifyRegisterPage() {
         verifiedToken: response.verifiedToken,
       });
 
-      setSuccess(responseMessage || "Đăng ký tài khoản thành công! Đang chuyển hướng đăng nhập...");
+      setSuccess("Xác thực và đăng ký thành công! Đang tự động đăng nhập...");
       clearRegisterOtpState();
       
-      setTimeout(() => {
-        router.replace("/login");
-      }, 2000);
+      if (loginResponse && loginResponse.accessToken && loginResponse.user) {
+        registerSession(loginResponse.accessToken, loginResponse.refreshToken || "", loginResponse.user);
+
+        const userTeams = loginResponse.user?.teams || [];
+        const userClassId = userTeams.length > 0 ? userTeams[0].id.toString() : "60d5ecb8b3112a445c742301";
+        const userEmail = loginResponse.user?.email || state.email;
+
+        sessionStorage.setItem("userEmail", userEmail);
+        if (userClassId) {
+          setActiveSessionClassId(userClassId);
+        }
+
+        const isAdmin = loginResponse.user?.roles?.some(
+          (role: string) => role === "ROLE_ADMIN" || role === "ROLE_SUPER_ADMIN" || role.includes("ADMIN")
+        );
+
+        setTimeout(() => {
+          if (isAdmin) {
+            router.replace("/admin");
+          } else {
+            router.replace("/calendar");
+          }
+        }, 1200);
+      } else {
+        setTimeout(() => {
+          router.replace("/login");
+        }, 1500);
+      }
     } catch (submitError) {
-      const message = submitError instanceof Error ? submitError.message : "Xác thực OTP thất bại.";
+      const message = submitError instanceof Error ? submitError.message : "Xác thực mã OTP thất bại.";
       setError(message);
     } finally {
       setIsLoading(false);
@@ -160,92 +196,82 @@ export default function VerifyRegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4 py-12">
-      <div className="w-full max-w-md">
-        <div className="rounded-2xl bg-white p-8 shadow-sm border border-slate-100">
-          <h2 className="mb-3 text-2xl font-bold text-slate-900">
-            Xác thực tài khoản
-          </h2>
+    <AuthPageContainer>
+      <AuthCard>
+        <AuthHeader
+          title="Xác thực tài khoản"
+          description={`Mã xác thực 6 số đã được gửi đến ${maskedEmail}`}
+        />
+
+        <AuthStatusAlert type="error" message={error} />
+        <AuthStatusAlert type="success" message={success} />
+
+        <form onSubmit={handleSubmit} className="mt-4 space-y-6">
+          <div className="flex justify-between gap-2">
+            {otp.map((digit, index) => (
+              <input
+                key={index}
+                ref={(el) => {
+                  inputRefs.current[index] = el;
+                }}
+                type="text"
+                inputMode="numeric"
+                maxLength={1}
+                value={digit}
+                onChange={(e) => handleChange(index, e.target.value)}
+                onKeyDown={(e) => handleKeyDown(index, e)}
+                onPaste={index === 0 ? handlePaste : undefined}
+                className="h-12 w-12 rounded-2xl border border-slate-200 bg-white text-center text-lg font-bold text-slate-800 shadow-sm transition-all focus:border-indigo-500 focus:outline-none focus:ring-4 focus:ring-indigo-50"
+              />
+            ))}
+          </div>
+
+          <AuthSubmitButton
+            isSubmitting={isLoading}
+            disabled={!otp.every((digit) => digit !== "")}
+            submitLabel="Xác thực và hoàn tất"
+            loadingLabel="Đang xử lý..."
+          />
+        </form>
+
+        <div className="mt-6 text-center">
+          <p className="mb-1 text-xs font-semibold text-slate-400 uppercase tracking-wider">Thời gian hiệu lực</p>
+          <div className="mb-3 flex items-center justify-center gap-2">
+            <div className="flex flex-col items-center">
+              <span className="text-xl font-bold text-indigo-600">
+                {Math.floor(timeLeft / 60).toString().padStart(2, "0")}
+              </span>
+              <span className="text-[9px] font-bold text-slate-400">PHÚT</span>
+            </div>
+            <span className="text-xl font-bold text-slate-300">:</span>
+            <div className="flex flex-col items-center">
+              <span className="text-xl font-bold text-indigo-600">
+                {(timeLeft % 60).toString().padStart(2, "0")}
+              </span>
+              <span className="text-[9px] font-bold text-slate-400">GIÂY</span>
+            </div>
+          </div>
           
-          <p className="mb-6 text-sm text-slate-600">
-            Để bảo mật, chúng tôi đã gửi một mã xác thực 6 số đến{" "}
-            <span className="font-semibold text-indigo-600">{maskedEmail}</span>. Vui lòng nhập mã để hoàn tất đăng ký.
-          </p>
-
-          {error && (
-            <p className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-600 font-medium">
-              {error}
-            </p>
-          )}
-
-          {success && (
-            <p className="mb-4 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-700 font-medium">
-              {success}
-            </p>
-          )}
-
-          <form onSubmit={handleSubmit}>
-            <div className="mb-6 flex justify-between gap-2">
-              {otp.map((digit, index) => (
-                <input
-                  key={index}
-                  ref={(el) => { inputRefs.current[index] = el; }}
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={1}
-                  value={digit}
-                  onChange={(e) => handleChange(index, e.target.value)}
-                  onKeyDown={(e) => handleKeyDown(index, e)}
-                  onPaste={index === 0 ? handlePaste : undefined}
-                  className="h-12 w-12 rounded-xl border border-slate-200 text-center text-lg font-semibold text-slate-800 transition-all focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-100"
-                />
-              ))}
-            </div>
-
+          {timeLeft === 0 && (
             <button
-              type="submit"
-              disabled={!otp.every(digit => digit !== "") || isLoading}
-              className="mb-4 w-full rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-indigo-500/10 transition-colors hover:from-indigo-700 hover:to-blue-700 disabled:opacity-50"
+              onClick={handleResendCode}
+              className="text-xs font-semibold text-indigo-600 hover:text-indigo-700 transition"
             >
-              {isLoading ? "Đang xử lý..." : "Xác thực và hoàn tất"}
+              Gửi lại mã OTP mới
             </button>
-          </form>
-
-          <div className="text-center">
-            <p className="mb-3 text-xs text-slate-500 font-semibold tracking-wider">GỬI LẠI MÃ SAU</p>
-            <div className="mb-3 flex items-center justify-center gap-2">
-              <div className="flex flex-col items-center">
-                <span className="text-2xl font-bold text-indigo-600">
-                  {Math.floor(timeLeft / 60).toString().padStart(2, "0")}
-                </span>
-                <span className="text-[10px] font-semibold text-slate-400">PHÚT</span>
-              </div>
-              <span className="text-2xl font-bold text-slate-300">:</span>
-              <div className="flex flex-col items-center">
-                <span className="text-2xl font-bold text-indigo-600">
-                  {(timeLeft % 60).toString().padStart(2, "0")}
-                </span>
-                <span className="text-[10px] font-semibold text-slate-400">GIÂY</span>
-              </div>
-            </div>
-            
-            {timeLeft === 0 && (
-              <button
-                onClick={handleResendCode}
-                className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition"
-              >
-                Tôi chưa nhận được mã OTP
-              </button>
-            )}
-          </div>
-
-          <div className="mt-6 flex items-center justify-between border-t border-slate-100 pt-6 text-xs text-slate-400 font-medium">
-            <a href="#" className="hover:text-slate-600">Điều khoản sử dụng</a>
-            <a href="#" className="hover:text-slate-600">Chính sách bảo mật</a>
-            <span>© 2026 OTT Edu</span>
-          </div>
+          )}
         </div>
-      </div>
-    </div>
+
+        <div className="mt-8 text-center text-sm text-slate-500">
+          <Link
+            href="/register"
+            className="font-semibold text-indigo-600 transition hover:text-indigo-700 hover:underline inline-flex items-center gap-1"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Nhập lại thông tin đăng ký
+          </Link>
+        </div>
+      </AuthCard>
+    </AuthPageContainer>
   );
 }

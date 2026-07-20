@@ -13,6 +13,7 @@ import {
   LockKeyhole,
   Eye,
   EyeOff,
+  CheckCircle2,
 } from "lucide-react";
 
 import {
@@ -39,6 +40,22 @@ type RegisterFormState = RegisterValidationInput;
 type ExtraFieldKey = "code" | "departmentId";
 
 const DEFAULT_SCHOOL_ID = 1;
+
+const getPasswordStrength = (password: string) => {
+  if (password.length === 0) return { strength: 0, label: "", color: "" };
+  if (password.length < 8) return { strength: 25, label: "Yếu", color: "bg-red-500" };
+  
+  let strength = 0;
+  if (password.length >= 8) strength += 25;
+  if (/[a-z]/.test(password)) strength += 25;
+  if (/[A-Z]/.test(password)) strength += 25;
+  if (/[0-9]/.test(password)) strength += 12.5;
+  if (/[^a-zA-Z0-9]/.test(password)) strength += 12.5;
+
+  if (strength < 50) return { strength, label: "Yếu", color: "bg-red-500" };
+  if (strength < 75) return { strength, label: "Trung bình", color: "bg-amber-500" };
+  return { strength: 100, label: "Mạnh", color: "bg-emerald-500" };
+};
 
 const INITIAL_FORM: RegisterFormState = {
   email: "",
@@ -382,6 +399,37 @@ export default function RegisterPage() {
                 </button>
               </div>
               <AuthFieldError message={touched.password ? errors.password : undefined} />
+
+              {form.password ? (
+                <div className="pt-2">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-xs font-medium text-slate-500">Độ mạnh mật khẩu</span>
+                    <span className={`text-xs font-semibold ${
+                      getPasswordStrength(form.password).label === "Mạnh" ? "text-emerald-600" :
+                      getPasswordStrength(form.password).label === "Trung bình" ? "text-amber-600" :
+                      "text-red-600"
+                    }`}>
+                      {getPasswordStrength(form.password).label}
+                    </span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+                    <div
+                      className={`h-full transition-all duration-300 ${getPasswordStrength(form.password).color}`}
+                      style={{ width: `${getPasswordStrength(form.password).strength}%` }}
+                    />
+                  </div>
+                  <div className="mt-2 flex items-center gap-1.5">
+                    <CheckCircle2 className={`w-3.5 h-3.5 ${
+                      form.password.length >= 8 && /[0-9]/.test(form.password) && /[^a-zA-Z0-9]/.test(form.password)
+                        ? "text-emerald-500"
+                        : "text-slate-300"
+                    }`} />
+                    <p className="text-xs text-slate-500">
+                      Tối thiểu 8 ký tự, bao gồm chữ số và ký tự đặc biệt.
+                    </p>
+                  </div>
+                </div>
+              ) : null}
             </div>
 
             {/* Confirm Password Input */}

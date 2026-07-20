@@ -56,10 +56,6 @@ export function validateRegisterForm(
   acceptedTerms: boolean,
 ): RegisterValidationErrors {
   const errors: RegisterValidationErrors = {};
-  const loginErrors = validateLoginForm({
-    email: input.email,
-    password: input.password,
-  });
 
   if (!input.fullName.trim()) {
     errors.fullName = "Vui lòng nhập họ và tên.";
@@ -67,12 +63,20 @@ export function validateRegisterForm(
     errors.fullName = "Họ và tên cần ít nhất 2 ký tự.";
   }
 
-  if (loginErrors.email) {
-    errors.email = loginErrors.email;
+  if (!input.email.trim()) {
+    errors.email = "Vui lòng nhập email.";
+  } else if (!EMAIL_PATTERN.test(input.email)) {
+    errors.email = "Email chưa đúng định dạng.";
   }
 
-  if (loginErrors.password) {
-    errors.password = loginErrors.password;
+  if (!input.password) {
+    errors.password = "Vui lòng nhập mật khẩu.";
+  } else if (
+    input.password.length < MIN_PASSWORD_LENGTH ||
+    !/[0-9]/.test(input.password) ||
+    !/[^a-zA-Z0-9]/.test(input.password)
+  ) {
+    errors.password = "Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ số và ký tự đặc biệt.";
   }
 
   if (!input.confirmPassword) {

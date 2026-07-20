@@ -8,22 +8,16 @@ type AuthHeaderProps = {
 export default function AuthHeader({ title, description }: AuthHeaderProps) {
   return (
     <div className="mb-6 text-center">
-      {/* Modern Premium Logo Display */}
-      <div className="relative mx-auto mb-4 inline-flex items-center justify-center">
-        {/* Soft Ambient Glow backdrop */}
-        <div className="absolute inset-0 rounded-2xl bg-indigo-500/15 blur-lg" />
-        
-        {/* Logo Container Box */}
-        <div className="relative flex h-16 w-16 items-center justify-center rounded-2xl border border-indigo-100/80 bg-white p-3 shadow-md shadow-indigo-500/10 transition-transform duration-300 hover:scale-105">
-          <Image
-            src="/assets/logo.png"
-            alt="OTT Edu Logo"
-            width={48}
-            height={48}
-            className="h-full w-full object-contain drop-shadow-sm"
-            priority
-          />
-        </div>
+      {/* Direct Logo Display */}
+      <div className="mx-auto mb-3 flex items-center justify-center">
+        <Image
+          src="/assets/logo.png"
+          alt="OTT Edu Logo"
+          width={64}
+          height={64}
+          className="h-16 w-16 object-contain drop-shadow-md transition-transform duration-300 hover:scale-105"
+          priority
+        />
       </div>
 
       <p className="mb-2 text-[11px] font-extrabold uppercase tracking-[0.24em] text-indigo-600">OTT Edu</p>
