@@ -6,7 +6,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { registerAccount, sendRegisterOtp, verifyOtp } from "@/services/auth/auth.service";
 import { getRegisterOtpState, setRegisterOtpState, clearRegisterOtpState } from "@/services/auth/otp-flow-store";
-import { registerSession, setActiveSessionClassId } from "@/services/auth/auth-session-store";
+import { registerSession, setActiveSessionClassId } from "@/services/api/token-store";
 
 import {
   AuthCard,
