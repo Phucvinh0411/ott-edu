@@ -1,5 +1,5 @@
 type AuthFieldErrorProps = {
-  message?: string;
+  message?: string | null;
 };
 
 export default function AuthFieldError({ message }: AuthFieldErrorProps) {
