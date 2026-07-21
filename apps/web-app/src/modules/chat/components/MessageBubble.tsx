@@ -4,6 +4,20 @@ import { Message, User } from "../types";
 import { LinkPreviewCard } from "./LinkPreviewCard";
 import Image from "next/image";
 import { SafeHtml } from "@/shared/utils/security";
+import { getInitialsFromDisplayName } from "@/shared/utils/user-display";
+
+const isSafeAvatarUrl = (value: string | null | undefined): value is string => {
+  if (!value) return false;
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+
+  try {
+    const parsed = new URL(trimmed);
+    return ["http:", "https:"].includes(parsed.protocol) && parsed.hostname !== "via.placeholder.com";
+  } catch {
+    return false;
+  }
+};
 
 import {
   MoreVertical,
@@ -300,22 +314,30 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({
     );
   }
 
-  // Render avatar người gửi (không own message)
+// Render avatar người gửi (không own message)
   const renderSenderAvatar = () => {
-    if (!sender?.avatarUrl) return null;
+    const avatarUrl = sender?.avatarUrl;
+    const name = sender?.name || "U";
+
     return (
       <button
         type="button"
-        onClick={() => onOpenProfile?.(sender)}
+        onClick={() => sender && onOpenProfile?.(sender)}
         className="mr-2 mt-auto shrink-0 cursor-pointer"
       >
-        <Image
-          src={sender.avatarUrl}
-          alt={sender.name}
-          width={32}
-          height={32}
-          className="h-8 w-8 rounded-full ring-1 ring-slate-200"
-        />
+        {isSafeAvatarUrl(avatarUrl) ? (
+          <Image
+            src={avatarUrl}
+            alt={name}
+            width={32}
+            height={32}
+            className="h-8 w-8 rounded-full object-cover ring-1 ring-slate-200"
+          />
+        ) : (
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-[#d1d2eb] text-xs font-extrabold text-[#4b53bc] ring-1 ring-slate-200 shadow-xs">
+            {getInitialsFromDisplayName(name)}
+          </div>
+        )}
       </button>
     );
   };

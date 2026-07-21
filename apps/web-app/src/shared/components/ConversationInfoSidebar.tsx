@@ -20,6 +20,7 @@ import {
   Key,
 } from "lucide-react";
 import AddTeamMemberModal from "@/modules/teams/AddTeamMemberModal";
+import { getInitialsFromDisplayName } from "@/shared/utils/user-display";
 import {
   extractMediaItems,
   extractFileItems,
@@ -506,7 +507,7 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
           const avatarUrl = isPrivateChat && otherParticipant
             ? otherParticipant.avatarUrl
             : conversationInfo?.avatarUrl;
-          return avatarUrl && avatarUrl.trim() !== "";
+          return isSafeAvatarUrl(avatarUrl);
         })() ? (
           <Image
             src={
@@ -530,14 +531,14 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
             className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
           />
         ) : (
-          <div className="w-16 h-16 rounded-full bg-linear-to-br from-blue-400 to-blue-600 flex items-center justify-center">
-            <span className="text-white font-semibold text-lg">
+          <div className="w-16 h-16 rounded-full bg-[#d1d2eb] flex items-center justify-center border-2 border-gray-200 shadow-xs">
+            <span className="text-[#4b53bc] font-extrabold text-xl">
               {(() => {
                 const otherParticipant = isPrivateChat ? otherParticipantIn1v1() : null;
-                if (isPrivateChat && otherParticipant) {
-                  return otherParticipant.fullName?.charAt(0)?.toUpperCase();
-                }
-                return conversationInfo?.name?.charAt(0)?.toUpperCase() || "C";
+                const name = isPrivateChat && otherParticipant
+                  ? otherParticipant.fullName
+                  : conversationInfo?.name;
+                return getInitialsFromDisplayName(name || "C");
               })()}
             </span>
           </div>
@@ -727,9 +728,9 @@ const ConversationInfoSidebar: React.FC<ConversationInfoSidebarProps> = ({
                               className="w-11 h-11 rounded-full object-cover"
                             />
                           ) : (
-                            <div className="w-11 h-11 rounded-full bg-linear-to-br from-blue-400 to-purple-600 flex items-center justify-center">
-                              <span className="text-white text-sm font-semibold">
-                                {participant.fullName?.charAt(0)?.toUpperCase() || "U"}
+                            <div className="w-11 h-11 rounded-full bg-[#d1d2eb] flex items-center justify-center shadow-xs">
+                              <span className="text-[#4b53bc] text-sm font-extrabold">
+                                {getInitialsFromDisplayName(participant.fullName || "U")}
                               </span>
                             </div>
                           )}

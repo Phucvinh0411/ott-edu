@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { getCurrentUser, type AuthUser } from "@/services/auth/auth.service";
-import { Mail, Phone, User, Building, Shield, Info, Edit, Sparkles } from "lucide-react";
+import { Mail, Phone, User, Building, Shield, Info, Edit } from "lucide-react";
 import { getInitialsFromDisplayName } from "@/shared/utils/user-display";
 
 export default function ProfileOverviewPage() {
@@ -112,9 +112,8 @@ export default function ProfileOverviewPage() {
             <div className="mt-4 flex-1 sm:mt-0">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between md:gap-4">
                 <div>
-                  <h1 className="text-3xl font-extrabold tracking-tight text-slate-900 flex items-center gap-2">
+                  <h1 className="text-3xl font-extrabold tracking-tight text-slate-900">
                     {fullName}
-                    <Sparkles className="h-5 w-5 text-amber-500 animate-bounce" />
                   </h1>
                   
                   <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-600">
