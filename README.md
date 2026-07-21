@@ -1,212 +1,218 @@
 # OTT Education Platform - Graduation Project
 
-Welcome to the **OTT Education Platform**, a comprehensive microservices-based application designed for online education. This project integrates a modern web frontend, a mobile application, robust backend services, and realtime communication capabilities.
-
-## 🚀 Overview
-
-The system is designed to provide a seamless learning experience across devices. It features:
-
-- **Web App**: A responsive student/instructor portal built with [Next.js](https://nextjs.org/).
-- **Mobile App**: A cross-platform mobile experience (iOS/Android) built with [React Native (Expo)](https://expo.dev/).
-- **Core Service**: The business logic powerhouse built with [Spring Boot](https://spring.io/projects/spring-boot).
-- **Chat Service**: Realtime messaging infrastructure using [Node.js](https://nodejs.org/) and [Socket.io](https://socket.io/).
-- **Gateway**: An [Nginx](https://nginx.org/) reverse proxy for efficient traffic routing and load balancing.
+Welcome to the **OTT Education Platform**, a modern, microservices-based online education and collaboration system. The platform integrates a Next.js web application, a React Native mobile client, multiple specialized backend microservices, real-time messaging, WebRTC video calling, and AI-driven automated quiz generation.
 
 ---
 
-## 🏗 System Architecture
+## 🚀 Key Features & Architectural Overview
 
-The following diagram illustrates the microservices architecture of the platform:
+The system is designed following a **Microservices Architecture** to ensure scalability, fault tolerance, and clear domain separation:
 
-![System Architecture](docs/images/architecture-diagram.png)
+- 💻 **Web Application (`apps/web-app`)**: Modern Next.js 16 (App Router, Turbopack) student/instructor portal featuring glassmorphic UI, unified "Deep Blue" design system (`#4b53bc`, `#d1d2eb`), and responsive layouts.
+- 📱 **Mobile Application (`apps/mobile-app`)**: Cross-platform mobile app built with React Native (Expo) for on-the-go learning and chat.
+- 🧠 **Core Service (`services/core-service`)**: Spring Boot (Java 21) handling user authentication, profile management, team/class management, permissions, and database migrations via Flyway.
+- 💬 **Chat & Call Service (`services/chat-service`)**: Node.js microservice delivering real-time messaging (Socket.io) and multi-party audio/video conferencing (Mediasoup WebRTC SFU).
+- 📝 **Assignment Service (`services/assignment-service`)**: Spring Boot (Java 21) microservice powering online quizzes, assignment distribution, student submissions, and automated grading.
+- 🤖 **AI Service (`services/ai-service`)**: Spring Boot (Java 21) service backed by PostgreSQL for processing document materials and automatically generating quiz questions.
+- 🌐 **Unified API Gateway (`gateway`)**: Nginx reverse proxy with SSL (`https://localhost:8000`), JWT access token validation via `auth_request`, and LAN support for WebRTC media permissions.
 
 ---
 
-## 📂 Project Structure (Monorepo)
+## 🏗 Microservices & Database Architecture
+
+```
+                                  +-----------------------+
+                                  |     Clients & Apps    |
+                                  | Web (Next.js) / Mobile|
+                                  +-----------+-----------+
+                                              |
+                                              v (HTTPS 8000 / WSS)
+                                  +-----------+-----------+
+                                  |  Nginx API Gateway    |
+                                  +-----+-----+-----+-----+
+                                        |     |     |
+            +---------------------------+     |     +---------------------------+
+            |                                 |                                 |
+            v                                 v                                 v
+  +---------+---------+             +---------+---------+             +---------+---------+
+  |   Core Service    |             |   Chat Service    |             | Assignment Svc  |
+  |  (Spring Boot)    |             | (Node.js/Socket)  |             |  (Spring Boot)  |
+  +---------+---------+             +---------+---------+             +---------+---------+
+            |                                 |                                 |
+            v                                 v                                 v
+     MySQL (Core DB)                 MongoDB (Chat DB)               MySQL (Assign DB)
+     
+                                              |
+                                              v
+                                    +---------+---------+
+                                    |    AI Service     |
+                                    |  (Spring Boot)    |
+                                    +---------+---------+
+                                              |
+                                              v
+                                      PostgreSQL (AI DB)
+```
+
+---
+
+## 📂 Monorepo Structure
 
 ```bash
 ├── apps/
-│   ├── web-app/          # Next.js Frontend
-│   └── mobile-app/       # React Native (Expo) Mobile App
+│   ├── web-app/               # Next.js 16 Web Portal (App Router, Tailwind CSS)
+│   └── mobile-app/            # React Native (Expo) Mobile App
 ├── services/
-│   ├── core-service/     # Spring Boot Backend (Business Logic)
-│   ├── chat-service/     # Node.js Chat Backend
-│   └── analytics-service/# Analytics Service (Planned)
-├── gateway/              # Nginx Configuration
-├── docker-compose.yml    # Docker orchestration for Backend & Web
-├── .env.example          # Environment variables template
-└── README.md             # Project Documentation
+│   ├── core-service/          # Spring Boot Backend (Auth, Users, Teams, Flyway)
+│   ├── chat-service/          # Node.js Chat Backend (Socket.io, Mediasoup SFU)
+│   ├── assignment-service/    # Spring Boot Assignment & Quiz Service
+│   └── ai-service/            # Spring Boot AI Service (Quiz Generation & Documents)
+├── gateway/                   # Nginx Reverse Proxy Configuration & SSL Certificates
+├── docker-compose.yml         # Main Docker Orchestration file
+├── docker-compose.prod.yml    # Production Docker Orchestration file
+├── docker-compose.local-ai.yml# Local AI Stack Docker file
+├── .env.example               # Environment variables template
+└── README.md                  # Project Documentation
 ```
 
 ---
 
-## 🤝 Team Workflow & Contribution Guidelines
+## 🛠 Tech Stack & Prerequisites
 
-To ensure code quality and collaboration efficiency for our team of 10 members, we adhere to the strict following guidelines.
+### Technologies Used
 
-### 1. Branching Strategy (Git Flow)
+| Layer / Subsystem | Primary Technologies |
+| :--- | :--- |
+| **Frontend Web** | Next.js 16 (Turbopack), React 19, Tailwind CSS, Lucide Icons |
+| **Mobile App** | React Native, Expo |
+| **Backend Services** | Java 21 (Spring Boot 3), Node.js (TypeScript, Socket.io, Mediasoup) |
+| **Databases** | MySQL 8.0, MongoDB 6.0, PostgreSQL 16 |
+| **API Gateway** | Nginx with SSL & JWT Auth Validation |
+| **Containerization** | Docker, Docker Compose |
 
-We use a **Feature Branch Workflow**. Direct commits to `main` are **prohibited**.
-
-- **`main`**: Production-ready code. Only merged via Pull Request (PR) after approval.
-- **`develop`**: Integration branch for testing.
-- **Feature Branches**: Created from `main` or `develop` for specific tasks.
-  - Naming Convention: `type/feature-name`
-  - Examples:
-    - `feat/user-auth`: Adding login functionality.
-    - `fix/chat-socket`: Fixing socket connection issues.
-    - `docs/update-readme`: Updating documentation.
-    - `style/login-page`: UI improvements.
-
-### 2. Commit Convention (Conventional Commits)
-
-All commit messages must follow the [Conventional Commits](https://www.conventionalcommits.org/) specification:
-
-```
-<type>: <description>
-
-[optional body]
-```
-
-**Types:**
-
-- `feat`: A new feature
-- `fix`: A bug fix
-- `docs`: Documentation only changes
-- `style`: Changes that do not affect the meaning of the code (white-space, formatting, etc)
-- `refactor`: A code change that neither fixes a bug nor adds a feature
-- `chore`: Changes to the build process or auxiliary tools
-
-**Example:**
-
-> `feat: implement login with google oauth`
-
-### 3. Pull Request (PR) Process
-
-1.  Push your feature branch.
-2.  Create a PR to `develop` (or `main` for hotfixes).
-3.  **Review Required**: At least 1-2 team members must review and approve the code.
-4.  **Checks**: Ensure local tests pass before merging.
-
----
-
-## 🛠 Prerequisites
-
-Ensure you have the following installed:
+### Prerequisites
 
 - [Docker](https://www.docker.com/get-started) & [Docker Compose](https://docs.docker.com/compose/install/)
-- [Node.js](https://nodejs.org/) (LTS version)
-- [Java JDK 21+](https://adoptium.net/) (for Core Service development)
+- [Node.js](https://nodejs.org/) (v20+ LTS)
+- [Java JDK 21+](https://adoptium.net/)
 
 ---
 
-## ⚙️ Installation & Setup
+## ⚙️ Installation & Development Setup
 
-### 1. Clone the repository
+### 1. Clone the Repository
 
 ```bash
 git clone <repository-url>
-cd ott-education
+cd ott-edu
 ```
 
-### 2. Backend & Web App (Docker)
+### 2. Configure Environment Variables
 
-This starts Core Service, Chat Service, Web App, Databases, and Gateway.
+Create `.env` file from `.env.example`:
 
-1.  **Configure Environment**:
+```bash
+cp .env.example .env
+```
 
-    ```bash
-    cp .env.example .env
-    # Check .env and update values if needed
-    ```
+### 3. Run Application Stack with Docker Compose
 
-2.  **Run Services**:
-    ```bash
-    docker-compose up -d --build
-    ```
+Start all microservices, databases, and the API gateway:
 
-### 3. Mobile App (Local Development)
+```bash
+docker compose up -d --build
+```
 
-The mobile app is **not** in Docker to allow for easier device testing/emulation.
+To view real-time logs of a specific service:
 
-1.  Navigate to the mobile app directory:
+```bash
+docker compose logs -f web-app
+# or: docker compose logs -f core-service
+```
 
-    ```bash
-    cd apps/mobile-app
-    ```
+To stop all services:
 
-2.  Install dependencies:
+```bash
+docker compose down
+```
 
-    ```bash
-    npm install
-    ```
+### 4. Run Mobile App (Local Development)
 
-3.  Start the Expo server:
+The mobile client runs outside Docker for Expo Go emulator testing:
 
-    ```bash
-    npm start
-    ```
-
-    - Scan the QR code with **Expo Go** on your phone (Android/iOS).
-    - Or press `a` for Android Emulator / `i` for iOS Simulator.
+```bash
+cd apps/mobile-app
+npm install
+npm start
+```
 
 ---
 
-## 🌐 Endpoints & Access
+## 🌐 Endpoints & Port Mappings
 
-| Component      | URL / Port                        | Description                     |
-| :------------- | :-------------------------------- | :------------------------------ |
-| **Gateway**    | `https://localhost:8000`          | Unified secure entry point.     |
-| **Gateway HTTP (Compat)** | `http://localhost:8088` | Temporary redirect to HTTPS 8000. |
-| **Web App**    | `https://localhost:8000`          | Accessible via Gateway.         |
-| **Mobile App** | `exp://<your-ip>:8081`            | Access via Expo Go or Emulator. |
-| **Core API**   | `http://localhost:8000/api/core/` | Spring Boot Swagger/API.        |
-| **Chat API**   | `http://localhost:8000/api/chat/` | Chat Service API.               |
-| **Socket.io**  | `ws://localhost:8000`             | Path: `/socket.io/`             |
-
-For LAN video call testing from other laptops, use HTTPS via `https://<LAN-IP>:8000` so browser camera permission is available in secure context.
-
-See [gateway/certs/README.md](gateway/certs/README.md) for mkcert setup and trust steps.
+| Component | Protocol / Port | Target Container / Description |
+| :--- | :--- | :--- |
+| **API Gateway (Primary)** | `https://localhost:8000` | Unified SSL entrypoint for Web App & APIs |
+| **Gateway HTTP Fallback** | `http://localhost:8088` | Redirects to HTTPS 8000 |
+| **Web Portal** | `https://localhost:8000/` | Proxied to `web-app:3000` |
+| **Core Service API** | `https://localhost:8000/api/core/` | Spring Boot Core Service |
+| **Chat Service API** | `https://localhost:8000/api/chat/` | Node.js Chat Service |
+| **Socket.io Realtime Chat**| `wss://localhost:8000/socket.io/` | Realtime messaging & call signaling |
+| **Mediasoup WebRTC SFU** | Ports `40000-40050` (UDP/TCP)| Audio/Video calling streams |
+| **MySQL Database (Core/Assign)**| `localhost:3306` | MySQL 8.0 (`ott_education_db` & `ott_assignment_db`) |
+| **MongoDB Database (Chat)**| `localhost:27017` | MongoDB 6.0 (`chat_history_db`) |
+| **PostgreSQL Database (AI)**| `localhost:5434` | PostgreSQL 16 (`ai_service_db`) |
 
 ---
 
 ## 🔐 Gateway JWT Authentication
 
-Gateway now enforces JWT access-token validation for backend APIs using Nginx `auth_request`.
+The API Gateway enforces secure JWT access-token verification via Nginx `auth_request` before proxying requests to internal backend microservices.
 
-- **Protected routes**:
-    - `/api/core/**`
-    - `/api/chat/**`
-- **Public routes (no JWT required)**:
-    - `/api/core/auth/**`
-    - `/api/core/schools/**`
-    - `/api/core/api/schools/**`
+- **Protected API Routes**:
+  - `/api/core/**`
+  - `/api/chat/**`
+- **Public API Routes (No JWT required)**:
+  - `/api/core/auth/**` (Login, Register, OTP, Password Reset)
+  - `/api/core/schools/**`
 
-Validation flow:
-
-1. Client sends `Authorization: Bearer <access_token>`.
-2. Gateway calls internal auth subrequest to Core Service endpoint `GET /auth/validate`.
-3. If token is valid, request is proxied to target service.
-4. If token is missing/invalid/expired, gateway returns `401`.
-
-Notes:
-
-- Access token source is **Authorization Bearer header only**.
-- In Docker Compose, `core-service` and `chat-service` are no longer published to host ports to reduce gateway bypass risk.
-- `/socket.io/` is unchanged in this phase and should be secured separately at handshake level if required.
+### Authentication Flow:
+1. Client sends request with `Authorization: Bearer <access_token>`.
+2. Nginx Gateway sends subrequest to `GET /auth/validate` on Core Service.
+3. If token is valid (`200 OK`), request proceeds to the target service.
+4. If token is invalid or expired, Gateway returns `401 Unauthorized`.
 
 ---
 
-## 🗄️ Database Credentials
-
-Default credentials for local development (defined in `.env`):
+## 🗄️ Database Credentials (Local Defaults)
 
 - **MySQL**:
-  - Host: `localhost` (Port: `3306`)
-  - User: `admin` / Password: `admin_password`
-  - Database: `ott_education_db`
-
+  - Host: `localhost` | Port: `3306`
+  - User: `root` | Password: `root_password` (or `admin` / `admin_password`)
+  - Databases: `ott_education_db`, `ott_assignment_db`
 - **MongoDB**:
-  - Host: `localhost` (Port: `27017`)
-  - User: `root` / Password: `secret_mongo_pass`
+  - Host: `localhost` | Port: `27017`
+  - User: `root` | Password: `secret_mongo_pass`
   - Database: `chat_history_db`
+- **PostgreSQL**:
+  - Host: `localhost` | Port: `5434`
+  - User: `ai_service` | Password: `ai_service`
+  - Database: `ai_service_db`
+
+---
+
+## 🤝 Team Workflow & Branching Strategy
+
+We follow the **Feature Branch Workflow** (Git Flow). Direct commits to `main` are strictly prohibited.
+
+- **`main`**: Production-ready code. Merged via Pull Requests with mandatory review.
+- **`develop`**: Integration and staging branch.
+- **Feature Branches**: `feat/*`, `fix/*`, `refactor/*`, `style/*`, `docs/*`.
+
+### Commit Convention
+```
+<type>: <short summary>
+
+Example:
+feat: unify default user avatar fallbacks across chat sidebar and message bubbles
+fix: resolve type error in VerifyRegisterPage authentication payload
+```

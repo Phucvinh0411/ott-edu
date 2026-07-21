@@ -21,6 +21,7 @@ export type AuthUser = {
   schoolName: string | null;
   departmentId: number | null;
   departmentName: string | null;
+  teams?: Array<{ id: string | number; [key: string]: unknown }>;
 };
 
 export type SchoolOption = {
